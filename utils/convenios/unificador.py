@@ -142,8 +142,9 @@ def clean_currency_value(value: object) -> object:
     else:
         numeric = numeric.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    normalized = format(numeric, "f").rstrip("0").rstrip(".")
-    return normalized if normalized and normalized != "-0" else "0"
+    # Valor monetario deve sair sempre em centavos explicitos.
+    normalized = format(numeric, ".2f")
+    return "0.00" if normalized == "-0.00" else normalized
 
 
 def clean_currency_text(series: pd.Series) -> pd.Series:
@@ -154,7 +155,7 @@ def parse_currency_decimal(value: object) -> Decimal | None:
     normalized = clean_currency_value(value)
     if pd.isna(normalized):
         return None
-    return Decimal(str(normalized)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return Decimal(str(normalized))
 
 
 def clean_integer_like_text(series: pd.Series) -> pd.Series:

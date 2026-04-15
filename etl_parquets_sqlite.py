@@ -116,7 +116,8 @@ def format_money_for_sqlite(value: object) -> object:
     numeric = parse_money_decimal(value)
     if numeric is None:
         return pd.NA
-    return format(numeric, "f")
+    # Mantem o valor monetario explicitamente arredondado a centavos.
+    return format(numeric, ".2f")
 
 
 def parse_int_like(series: pd.Series) -> pd.Series:

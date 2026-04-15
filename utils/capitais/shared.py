@@ -138,6 +138,14 @@ def clean_document(series: pd.Series | None) -> pd.Series:
     return digits.mask(digits.eq("")).mask(digits.str.len().lt(11))
 
 
+def normalize_year_reference(series: pd.Series | None) -> pd.Series:
+    cleaned = clean_text(series)
+    if cleaned.empty:
+        return cleaned
+    normalized = cleaned.str.replace(r"^((?:19|20)\d{2})[_-]\d+$", r"\1", regex=True)
+    return normalized
+
+
 def excel_serial_to_date(series: pd.Series | None) -> pd.Series:
     cleaned = clean_text(series)
     if cleaned.empty:
@@ -174,7 +182,7 @@ def map_rio_branco(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
             {
                 "uf": city_series(frame, config.uf),
                 "origem": city_series(frame, ORIGEM_CAPITAIS),
-                "ano": frame.get("ano_referencia"),
+                "ano": normalize_year_reference(frame.get("ano_referencia")),
                 "valor_total": first_non_empty(frame.get("pago_rs"), frame.get("liquidado_rs"), frame.get("empenhado_rs")),
                 "cnpj": frame.get("cpf/cpnj"),
                 "nome_osc": first_non_empty(frame.get("nome/razão_social"), frame.get("pessoa")),
