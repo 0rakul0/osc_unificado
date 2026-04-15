@@ -5,3 +5,6 @@
 !/historia/
 !/pages/
 !/utils/
+*.pyc
+*.pyc
+/utils/__pycache__

@@ -1,14 +1,9 @@
 from importlib import import_module
 
-from utils.core.common import ParserConfig, WorkbookParser
 
-
-def get_parser(uf: str) -> WorkbookParser:
+def get_parser(uf: str):
     module = import_module(f"utils.convenios.parsers.{uf.upper()}")
     parser = getattr(module, "PARSER", None)
     if parser is None:
         raise ValueError(f"Parser da UF {uf} nao encontrado.")
     return parser
-
-
-__all__ = ["ParserConfig", "WorkbookParser", "get_parser"]

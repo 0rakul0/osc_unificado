@@ -14,10 +14,19 @@ O objetivo e transformar fontes heterogeneas em um schema unico, permitindo audi
   Os arquivos seguem o padrao `UF_NOMECAPITAL.parquet`, por exemplo `MT_CUIABA.parquet` e `AC_RIO_BRANCO.parquet`.
 - [processada](D:/github/osc_unificado/processada): saida consolidada em `.parquet`, um arquivo por UF.
 - [governo_federal](D:/github/osc_unificado/governo_federal): parquets por UF derivados da base federal, no mesmo schema consolidado.
-- [utils](D:/github/osc_unificado/utils): parsers por UF, componentes comuns e subpastas por trilha.
+- [utils](D:/github/osc_unificado/utils): componentes compartilhados, parsers legados e subpastas por trilha.
+- [utils/core](D:/github/osc_unificado/utils/core): camada compartilhada de schema, normalizacao e mapeamentos dos parsers.
+- [unificador.py](D:/github/osc_unificado/unificador.py): runner do fluxo completo do projeto, executando em sequencia `convenios`, `orcamento_geral`, `capitais` e a carga do `sqlite`.
 - [utils/convenios](D:/github/osc_unificado/utils/convenios): scripts da trilha principal de convenios, incluindo consolidacao, enriquecimento federal, separacao federal e auditoria.
-- [utils/orcamento_geral](D:/github/osc_unificado/utils/orcamento_geral): scripts da trilha de orcamento geral, organizados por UF.
-- [utils/convenios/unificador.py](D:/github/osc_unificado/utils/convenios/unificador.py): script principal de consolidacao.
+- [utils/convenios/parsers](D:/github/osc_unificado/utils/convenios/parsers): parsers estaduais de convenios por UF.
+- [utils/orcamento_geral](D:/github/osc_unificado/utils/orcamento_geral): scripts da trilha estadual de orcamento geral, organizados por UF.
+- [utils/orcamento_geral/parsers](D:/github/osc_unificado/utils/orcamento_geral/parsers): parsers estaduais da trilha `orcamento_geral`.
+- [utils/orcamento_geral/downloads](D:/github/osc_unificado/utils/orcamento_geral/downloads): downloaders estaduais da trilha `orcamento_geral`.
+- [utils/capitais](D:/github/osc_unificado/utils/capitais): ponto de execucao e organizacao da trilha de capitais, separado da trilha estadual.
+- [utils/capitais/downloads](D:/github/osc_unificado/utils/capitais/downloads): downloaders de fontes das capitais.
+- [utils/orcamento_geral/processar_estados.py](D:/github/osc_unificado/utils/orcamento_geral/processar_estados.py): runner da trilha estadual para executar os processadores de `orcamento_geral` em lote ou por UF.
+- [utils/convenios/processar_convenios.py](D:/github/osc_unificado/utils/convenios/processar_convenios.py): ponto de execucao explicito da trilha estadual de convenios.
+- [utils/convenios/unificador.py](D:/github/osc_unificado/utils/convenios/unificador.py): entrada legada mantida por compatibilidade para a trilha de convenios.
 - [utils/convenios/enriquecer_processada_governo.py](D:/github/osc_unificado/utils/convenios/enriquecer_processada_governo.py): enriquecimento dos parquets com a base federal.
 - [utils/convenios/separar_governo_federal.py](D:/github/osc_unificado/utils/convenios/separar_governo_federal.py): separa a base federal em um parquet por UF.
 - [utils/convenios/auditar_processada.py](D:/github/osc_unificado/utils/convenios/auditar_processada.py): gera a planilha de auditoria.
@@ -113,6 +122,40 @@ Na trilha de orcamento geral, os scripts preparados para download/processamento 
 
 Quando a saida for de capital, o parquet gerado passa a usar o nome da capital no arquivo, por exemplo `MT_CUIABA.parquet`.
 
+Para executar a trilha estadual de `orcamento_geral` de forma centralizada, use:
+
+```powershell
+python utils/orcamento_geral/processar_estados.py
+python utils/orcamento_geral/processar_estados.py --ufs GO RJ PI
+```
+
+Para rodar o fluxo completo do projeto, use:
+
+```powershell
+python unificador.py
+python unificador.py --only convenios sqlite
+python unificador.py --skip sqlite
+```
+
+Para executar a trilha de capitais de forma separada, use:
+
+```powershell
+python utils/capitais/processar_capitais.py
+```
+
+Para executar a trilha estadual de convenios com nome explicito, use:
+
+```powershell
+python utils/convenios/processar_convenios.py --force
+```
+
+Os caminhos antigos continuam funcionando por compatibilidade:
+
+```powershell
+python utils/orcamento_geral/processar_orcamento_geral_capitais.py
+python utils/convenios/unificador.py --force
+```
+
 ## Regra operacional
 
 Fluxo padrao daqui para frente:
@@ -135,28 +178,28 @@ O tracker gerado resume o status de estado e capital, incluindo um sinal heurist
 
 ### 1. Consolidacao inicial
 
-Script: [utils/convenios/unificador.py](D:/github/osc_unificado/utils/convenios/unificador.py)
+Script: [utils/convenios/processar_convenios.py](D:/github/osc_unificado/utils/convenios/processar_convenios.py)
 
 Le os arquivos em `bases_convenios/`, aplica o parser da UF correspondente e grava um `.parquet` em `processada/`.
 
 Comando basico:
 
 ```powershell
-python utils/convenios/unificador.py --force
+python utils/convenios/processar_convenios.py --force
 ```
 
 Comandos uteis:
 
 ```powershell
-python utils/convenios/unificador.py --ufs RJ DF PA --force
-python utils/convenios/unificador.py --skip-ufs RJ PA
-python utils/convenios/unificador.py --preview-rows 1000 --ufs AP
+python utils/convenios/processar_convenios.py --ufs RJ DF PA --force
+python utils/convenios/processar_convenios.py --skip-ufs RJ PA
+python utils/convenios/processar_convenios.py --preview-rows 1000 --ufs AP
 ```
 
 O que ele faz:
 
 - identifica os arquivos de entrada por UF
-- escolhe o parser em `utils/<UF>.py`
+- escolhe o parser em `utils/convenios/parsers/<UF>.py`
 - renomeia colunas para o schema padrao
 - deriva `ano` e `mes` a partir de datas quando necessario
 - preenche `origem = convenios` para a carga estadual, salvo quando um parser informar outro valor
@@ -328,25 +371,26 @@ python etl_parquets_sqlite.py --processed-dir processada --history-dir historia 
 
 ## Parsers por UF
 
-Cada UF possui um parser em [utils](D:/github/osc_unificado/utils). Existem dois tipos principais:
+Cada UF possui um parser principal em [utils/convenios/parsers](D:/github/osc_unificado/utils/convenios/parsers). Durante a transicao, os arquivos em `utils/*.py` permanecem como legado/compatibilidade. Existem dois tipos principais:
 
-- parsers genericos, baseados em [utils/common.py](D:/github/osc_unificado/utils/common.py)
+- parsers genericos, baseados em [utils/core/common.py](D:/github/osc_unificado/utils/core/common.py)
 - parsers customizados, quando a UF exige limpeza ou leitura especial
 
 Exemplos de tratamento customizado:
 
-- [utils/AP.py](D:/github/osc_unificado/utils/AP.py): remove CNPJ colado no final de `nome_osc`.
-- [utils/BA.py](D:/github/osc_unificado/utils/BA.py): mantem `data_inicio` e `data_fim` vazios.
-- [utils/DF.py](D:/github/osc_unificado/utils/DF.py): completa `codigoCredor` com zeros a esquerda e faz fallback de `objeto`.
-- [utils/PA.py](D:/github/osc_unificado/utils/PA.py): leitura tolerante dos CSVs do PA.
-- [utils/RJ.py](D:/github/osc_unificado/utils/RJ.py): trata XLSX e CSVs com regras diferentes, inclusive extracao de datas em texto.
+- [utils/convenios/parsers/AP.py](D:/github/osc_unificado/utils/convenios/parsers/AP.py): remove CNPJ colado no final de `nome_osc`.
+- [utils/convenios/parsers/BA.py](D:/github/osc_unificado/utils/convenios/parsers/BA.py): mantem `data_inicio` e `data_fim` vazios.
+- [utils/convenios/parsers/DF.py](D:/github/osc_unificado/utils/convenios/parsers/DF.py): completa `codigoCredor` com zeros a esquerda e faz fallback de `objeto`.
+- [utils/convenios/parsers/PA.py](D:/github/osc_unificado/utils/convenios/parsers/PA.py): leitura tolerante dos CSVs do PA.
+- [utils/convenios/parsers/RJ.py](D:/github/osc_unificado/utils/convenios/parsers/RJ.py): trata XLSX e CSVs com regras diferentes, inclusive extracao de datas em texto.
 - [utils/gov_convenios.py](D:/github/osc_unificado/utils/gov_convenios.py): parser da base federal de convenios.
 
-Os mapeamentos de colunas por UF ficam em [utils/config.py](D:/github/osc_unificado/utils/config.py).
+Os mapeamentos de colunas por UF ficam em [utils/core/parser_mappings.py](D:/github/osc_unificado/utils/core/parser_mappings.py).
+Os arquivos [utils/common.py](D:/github/osc_unificado/utils/common.py) e [utils/config.py](D:/github/osc_unificado/utils/config.py) foram mantidos como wrappers de compatibilidade.
 
 ## Regras de entrada atualmente configuradas
 
-Em [utils/convenios/unificador.py](D:/github/osc_unificado/utils/convenios/unificador.py), algumas UFs usam arquivos exclusivos ou fontes especificas:
+Em [utils/convenios/processar_convenios.py](D:/github/osc_unificado/utils/convenios/processar_convenios.py), algumas UFs usam arquivos exclusivos ou fontes especificas:
 
 - `AC`: usa apenas `convenios_ac.csv`
 - `DF`: usa apenas `dados_credor_convenios_DF.xlsx`
@@ -378,7 +422,7 @@ Regra do pipeline:
 Quando entrar uma base nova ou um ajuste de parser:
 
 1. editar o parser ou o mapeamento da UF
-2. reprocessar a UF afetada com `utils/convenios/unificador.py`
+2. reprocessar a UF afetada com `utils/convenios/processar_convenios.py`
 3. se fizer sentido, rodar `utils/convenios/enriquecer_processada_governo.py` para complementar dados
 4. rodar `utils/convenios/auditar_processada.py`
 5. revisar a aba do estado e a aba `Resumo` na auditoria
@@ -386,7 +430,7 @@ Quando entrar uma base nova ou um ajuste de parser:
 Exemplo pratico:
 
 ```powershell
-python utils/convenios/unificador.py --ufs DF --force
+python utils/convenios/processar_convenios.py --ufs DF --force
 python utils/convenios/enriquecer_processada_governo.py --ufs DF
 python utils/convenios/auditar_processada.py
 ```
