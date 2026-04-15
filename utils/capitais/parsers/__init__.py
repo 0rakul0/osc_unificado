@@ -1,0 +1,1 @@
+"""Parsers/configuracoes por capital."""

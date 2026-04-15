@@ -1,3 +1,3 @@
-from .common import build_parser
+from utils.convenios.parsers.AM import PARSER
 
-PARSER = build_parser("AM")
+__all__ = ["PARSER"]

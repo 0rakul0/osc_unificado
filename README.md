@@ -23,6 +23,7 @@ O objetivo e transformar fontes heterogeneas em um schema unico, permitindo audi
 - [utils/orcamento_geral/parsers](D:/github/osc_unificado/utils/orcamento_geral/parsers): parsers estaduais da trilha `orcamento_geral`.
 - [utils/orcamento_geral/downloads](D:/github/osc_unificado/utils/orcamento_geral/downloads): downloaders estaduais da trilha `orcamento_geral`.
 - [utils/capitais](D:/github/osc_unificado/utils/capitais): ponto de execucao e organizacao da trilha de capitais, separado da trilha estadual.
+- [utils/capitais/parsers](D:/github/osc_unificado/utils/capitais/parsers): configuracoes por capital para a trilha `capitais`.
 - [utils/capitais/downloads](D:/github/osc_unificado/utils/capitais/downloads): downloaders de fontes das capitais.
 - [utils/orcamento_geral/processar_estados.py](D:/github/osc_unificado/utils/orcamento_geral/processar_estados.py): runner da trilha estadual para executar os processadores de `orcamento_geral` em lote ou por UF.
 - [utils/convenios/processar_convenios.py](D:/github/osc_unificado/utils/convenios/processar_convenios.py): ponto de execucao explicito da trilha estadual de convenios.
@@ -153,6 +154,9 @@ Os caminhos antigos continuam funcionando por compatibilidade:
 
 ```powershell
 python utils/orcamento_geral/processar_orcamento_geral_capitais.py
+python utils/orcamento_geral/processar_orcamento_geral_go.py
+python utils/orcamento_geral/baixar_orcamento_geral_ac.py
+python utils/orcamento_geral/baixar_convenios_capital_cuiaba.py
 python utils/convenios/unificador.py --force
 ```
 
@@ -371,7 +375,7 @@ python etl_parquets_sqlite.py --processed-dir processada --history-dir historia 
 
 ## Parsers por UF
 
-Cada UF possui um parser principal em [utils/convenios/parsers](D:/github/osc_unificado/utils/convenios/parsers). Durante a transicao, os arquivos em `utils/*.py` permanecem como legado/compatibilidade. Existem dois tipos principais:
+Cada UF possui um parser principal em [utils/convenios/parsers](D:/github/osc_unificado/utils/convenios/parsers). Durante a transicao, os arquivos em `utils/*.py` permanecem como legado/compatibilidade e hoje sao wrappers finos para o namespace novo. Existem dois tipos principais:
 
 - parsers genericos, baseados em [utils/core/common.py](D:/github/osc_unificado/utils/core/common.py)
 - parsers customizados, quando a UF exige limpeza ou leitura especial
@@ -387,6 +391,8 @@ Exemplos de tratamento customizado:
 
 Os mapeamentos de colunas por UF ficam em [utils/core/parser_mappings.py](D:/github/osc_unificado/utils/core/parser_mappings.py).
 Os arquivos [utils/common.py](D:/github/osc_unificado/utils/common.py) e [utils/config.py](D:/github/osc_unificado/utils/config.py) foram mantidos como wrappers de compatibilidade.
+
+Na trilha de capitais, a configuracao das fontes foi quebrada em [utils/capitais/parsers](D:/github/osc_unificado/utils/capitais/parsers), enquanto a logica compartilhada de leitura e escrita permanece em `utils/capitais/shared.py`.
 
 ## Regras de entrada atualmente configuradas
 
