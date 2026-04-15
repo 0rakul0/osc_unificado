@@ -1,0 +1,12 @@
+# Dados processados
+*.parquet
+
+# Saidas locais do projeto
+/processada/
+/capitais_processada/
+/orcamento_geral_processada/
+/governo_federal/
+
+# Bancos e artefatos gerados localmente
+/osc_unificado.sqlite
+/auditoria_processada.xlsx
