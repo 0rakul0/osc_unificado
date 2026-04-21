@@ -1,0 +1,429 @@
+# Belo Horizonte - Colunas Candidatas
+
+Pasta analisada: `E:\dados\bases_convenios_capitais\Belo Horizonte`
+
+Resumo consolidado das colunas que parecem candidatas ao schema do projeto.
+
+## Resumo Geral
+
+- `ano`: ano_ij, Ano IJ, ano_empenho, ano_liquidacao, ano_op, ANO_EMPENHO, ANO_LIQUIDACAO, ANO_OP
+- `valor_total`: valor_ij, Valor IJ, vl_empenhado, vl_npd, vl_anul_npd, valor_bruto_op, VL_EMPENHADO, VL_NPD, VL_ANUL_NPD, VALOR_BRUTO_OP
+- `cnpj`: numero_documento, NUMERO_DOCUMENTO
+- `nome_osc`: fornecedor, Fornecedor, nome_credor, NOME_CREDOR
+- `objeto`: objeto, Objeto, justificativa_sucinta, JUSTIFICATIVA_SUCINTA
+- `modalidade`: natureza, tipo_contrato, situao, Natureza, Tipo Contrato, Situao, instrumento_juridico, modalidade_licitacao, natureza_despesa, nome_natureza_despesa, INSTRUMENTO_JURIDICO, MODALIDADE_LICITACAO, NATUREZA_DESPESA, NOME_NATUREZA_DESPESA
+- `data_inicio`: data_inicio_vigencia, data_publicacao, dt_lancamento, data_liquidacao, data_op, DT_LANCAMENTO, DATA_LIQUIDACAO, DATA_OP
+- `data_fim`: data_fim_vigencia
+
+## belohorizonte_convenios_repasse.csv
+
+- Tipo: CSV
+- Encoding: `utf-8-sig`
+- Separador: `,`
+- Total de colunas: 14
+
+### Colunas candidatas por campo
+
+- `ano`: ano_ij
+- `valor_total`: valor_ij
+- `cnpj`: (nenhuma)
+- `nome_osc`: fornecedor
+- `objeto`: objeto
+- `modalidade`: natureza, tipo_contrato, situao
+- `data_inicio`: data_inicio_vigencia, data_publicacao
+- `data_fim`: data_fim_vigencia
+
+### Amostras das colunas candidatas
+
+- `ano_ij`: 2021, 2020, 2023
+- `natureza`: Convnio de Repasse
+- `tipo_contrato`: (sem valores)
+- `situao`: Ativado
+- `data_inicio_vigencia`: 17/08/2021, 15/04/2020, 29/07/2020
+- `data_publicacao`: 16/06/2021, 06/05/2020, 27/08/2020
+- `data_fim_vigencia`: 16/08/2026, 14/04/2025, 28/07/2024
+- `valor_ij`: R$ 1.485.000,00, R$ 278.062,82, R$ 1.476.600,00
+- `fornecedor`: 563340 - TRIBUNAL DA JUSTICA DO ESTADO DE MINAS GERAIS (R$ 1485000), 786712 - PBH ATIVOS S.A. (R$ 278062.82), 622676 - POLICIA MILITAR DO ESTADO DE MINAS GERAIS (R$ 1476600)
+- `objeto`: Grupo objeto: PRESTAÌO DE SERVIOS / Objeto: SERVIOS TCNICOS PROFISSIONAIS (R$ 1485000), Grupo objeto: PROJETOS / Objeto: SERVIOS TCNICOS ESPECIALIZADOS (R$ 278062.82), Grupo objeto: VIGILåNCIA / Objeto: SERVIOS DE VIGILåNCIA E PORTARIA (R$ 1476600)
+
+### Todas as colunas
+
+`numero_ij`, `ano_ij`, `nome_uo`, `natureza`, `tipo_contrato`, `situao`, `numero_processo`, `data_inicio_vigencia`, `data_fim_vigencia`, `data_registro_pgm`, `data_publicacao`, `valor_ij`, `fornecedor`, `objeto`
+
+## belohorizonte_convenios_repasse_2024.csv
+
+- Tipo: CSV
+- Encoding: `latin1`
+- Separador: `;`
+- Total de colunas: 14
+
+### Colunas candidatas por campo
+
+- `ano`: Ano IJ
+- `valor_total`: Valor IJ
+- `cnpj`: (nenhuma)
+- `nome_osc`: Fornecedor
+- `objeto`: Objeto
+- `modalidade`: Natureza, Tipo Contrato, Situao
+- `data_inicio`: (nenhuma)
+- `data_fim`: (nenhuma)
+
+### Amostras das colunas candidatas
+
+- `Ano IJ`: 2021, 2020, 2023
+- `Natureza`: Convnio de Repasse
+- `Tipo Contrato`: (sem valores)
+- `Situao`: Ativado
+- `Valor IJ`: R$ 1.485.000,00, R$ 278.062,82, R$ 1.476.600,00
+- `Fornecedor`: 563340 - TRIBUNAL DA JUSTICA DO ESTADO DE MINAS GERAIS (R$ 1485000), 786712 - PBH ATIVOS S.A. (R$ 278062.82), 622676 - POLICIA MILITAR DO ESTADO DE MINAS GERAIS (R$ 1476600)
+- `Objeto`: Grupo objeto: PRESTAÌO DE SERVIOS / Objeto: SERVIOS TCNICOS PROFISSIONAIS (R$ 1485000), Grupo objeto: PROJETOS / Objeto: SERVIOS TCNICOS ESPECIALIZADOS (R$ 278062.82), Grupo objeto: VIGILåNCIA / Objeto: SERVIOS DE VIGILåNCIA E PORTARIA (R$ 1476600)
+
+### Todas as colunas
+
+`Nmero IJ`, `Ano IJ`, `Nome UO`, `Natureza`, `Tipo Contrato`, `Situao`, `Nmero Processo`, `Data Incio de Vigncia`, `Data Final de Vigncia`, `Data Registro PGM`, `Data Publicao`, `Valor IJ`, `Fornecedor`, `Objeto`
+
+## belohorizonte_convenios_repasse_raw.csv
+
+- Tipo: CSV
+- Encoding: `latin1`
+- Separador: `;`
+- Total de colunas: 14
+
+### Colunas candidatas por campo
+
+- `ano`: Ano IJ
+- `valor_total`: Valor IJ
+- `cnpj`: (nenhuma)
+- `nome_osc`: Fornecedor
+- `objeto`: Objeto
+- `modalidade`: Natureza, Tipo Contrato, Situao
+- `data_inicio`: (nenhuma)
+- `data_fim`: (nenhuma)
+
+### Amostras das colunas candidatas
+
+- `Ano IJ`: 2021, 2020, 2023
+- `Natureza`: Convnio de Repasse
+- `Tipo Contrato`: (sem valores)
+- `Situao`: Ativado
+- `Valor IJ`: R$ 1.485.000,00, R$ 278.062,82, R$ 1.476.600,00
+- `Fornecedor`: 563340 - TRIBUNAL DA JUSTICA DO ESTADO DE MINAS GERAIS (R$ 1485000), 786712 - PBH ATIVOS S.A. (R$ 278062.82), 622676 - POLICIA MILITAR DO ESTADO DE MINAS GERAIS (R$ 1476600)
+- `Objeto`: Grupo objeto: PRESTAÌO DE SERVIOS / Objeto: SERVIOS TCNICOS PROFISSIONAIS (R$ 1485000), Grupo objeto: PROJETOS / Objeto: SERVIOS TCNICOS ESPECIALIZADOS (R$ 278062.82), Grupo objeto: VIGILåNCIA / Objeto: SERVIOS DE VIGILåNCIA E PORTARIA (R$ 1476600)
+
+### Todas as colunas
+
+`Nmero IJ`, `Ano IJ`, `Nome UO`, `Natureza`, `Tipo Contrato`, `Situao`, `Nmero Processo`, `Data Incio de Vigncia`, `Data Final de Vigncia`, `Data Registro PGM`, `Data Publicao`, `Valor IJ`, `Fornecedor`, `Objeto`
+
+## belohorizonte_parcerias.html
+
+- Tipo: HTML
+- Total de cabecalhos `<th>` identificados: 0
+
+### Colunas candidatas por campo
+
+- `ano`: (nenhuma)
+- `valor_total`: (nenhuma)
+- `cnpj`: (nenhuma)
+- `nome_osc`: (nenhuma)
+- `objeto`: (nenhuma)
+- `modalidade`: (nenhuma)
+- `data_inicio`: (nenhuma)
+- `data_fim`: (nenhuma)
+
+### Cabecalhos identificados
+
+(nenhum cabecalho reconhecido)
+
+## despesas_2024_12_07_2024.csv
+
+- Tipo: CSV
+- Encoding: `cp1252`
+- Separador: `;`
+- Total de colunas: 53
+
+### Colunas candidatas por campo
+
+- `ano`: ano_empenho, ano_liquidacao, ano_op
+- `valor_total`: vl_empenhado, vl_npd, vl_anul_npd, valor_bruto_op
+- `cnpj`: numero_documento
+- `nome_osc`: nome_credor
+- `objeto`: justificativa_sucinta
+- `modalidade`: instrumento_juridico, modalidade_licitacao, natureza_despesa, nome_natureza_despesa
+- `data_inicio`: dt_lancamento, data_liquidacao, data_op
+- `data_fim`: (nenhuma)
+
+### Amostras das colunas candidatas
+
+- `ano_empenho`: 2021, 2020
+- `ano_liquidacao`: 2024
+- `ano_op`: 2024
+- `dt_lancamento`: 06/10/2021 00:00, 18/03/2021 00:00, 02/12/2020 00:00
+- `data_liquidacao`: 18/01/2024 00:00, 22/03/2024 00:00, 14/05/2024 00:00
+- `data_op`: 24/01/2024 00:00, 26/03/2024 00:00, 11/06/2024 00:00
+- `vl_empenhado`: 14249,04, 300, 5611053,61
+- `vl_npd`: 1902,94, 7, 86998,62
+- `vl_anul_npd`: 0
+- `valor_bruto_op`: 1902,94, 7, 86998,62
+- `instrumento_juridico`: 1,20171E+16, 1,20201E+16, 1,20191E+16
+- `modalidade_licitacao`: 9, 5
+- `natureza_despesa`: 339039, 339048, 449040
+- `nome_natureza_despesa`: OUTROS SERVIÇOS DE TERCEIROS - PESSOA JURÍDICA, OUTROS AUXÍLIOS FINANCEIROS A PESSOAS FÍSICAS, SERVIÇOS DE TECNOLOGIA DA INFORMAÇÃO E COMUNICAÇÃO - PESSOA JURÍDICA
+- `justificativa_sucinta`: SERVIÇO DE GUARDA E GERENCIAMENTO DE DOCUMENTOS. RECURSO ORIUNDO DE TRANSFERÊNCIAS DO FNAS REFERENTE AO IGDBF., DESPESAS COM CORREIOS E TELÉGRAFOS., AQUISIÇÃO DE UMA SOLUÇÃO INTREGRADA DE GESTÃO OU ENTERPRISE RESOURCE PLANNING (ERP), CONTENDO LICENÇAS E SERVIÇOS TÉCNICOS NECESSÁRIOS À IMPLANTAÇÃO E SUSTENTAÇ
+- `nome_credor`: NEX TECNOLOGIA EM GESTÃO DA INFORMAÇÃO LTDA., EMPRESA BRASILEIRA DE CORREIOS E TELÉGRAFOS - ECT, ÁBACO TECNOLOGIA DE INFORMAÇÃO LTDA.
+- `numero_documento`: 1,57538E+13, 3,40283E+13, 3,74327E+13
+
+### Todas as colunas
+
+`ano_empenho`, `uo`, `empenho`, `dt_lancamento`, `vl_empenhado`, `anulacao`, `instrumento_juridico`, `ano_licitacao`, `modalidade_licitacao`, `numero_licitacao`, `classificacao`, `co`, `justificativa_sucinta`, `ano_liquidacao`, `uo_liquidacao`, `liquidacao`, `data_liquidacao`, `vl_npd`, `vl_anul_npd`, `nome_credor`, `numero_documento`, `ano_op`, `num_op`, `data_op`, `valor_bruto_op`, `uo.1`, `nome_uo`, `ua`, `nome_ua`, `funcao`, `nome_função`, `subfuncao`, `nome_subfuncao`, `programa`, `nome_programa`, `subprograma`, `nome_subprograma`, `projativ`, `nome_projativ`, `subitem_projativ`, `nome_subitem_projativ`, `natureza_despesa`, `nome_natureza_despesa`, `item_despesa`, `nome_item_despesa`, `cod_siafic_grupo`, `desc_siafic_grupo`, `cod_siafic_fonte`, `desc_siafic_fonte`, `cod_siafic_detalhamento_fonte`, `desc_siafic_detalhamento_fonte`, `cod_siafic_codigo_orcamentario`, `desc_siafic_codigo_orcamentario`
+
+## transparencia_despesas_2018.csv
+
+- Tipo: CSV
+- Encoding: `cp1252`
+- Separador: `;`
+- Total de colunas: 57
+
+### Colunas candidatas por campo
+
+- `ano`: ANO_EMPENHO, ANO_LIQUIDACAO, ANO_OP
+- `valor_total`: VL_EMPENHADO, VL_NPD, VL_ANUL_NPD, VALOR_BRUTO_OP
+- `cnpj`: NUMERO_DOCUMENTO
+- `nome_osc`: NOME_CREDOR
+- `objeto`: JUSTIFICATIVA_SUCINTA
+- `modalidade`: INSTRUMENTO_JURIDICO, MODALIDADE_LICITACAO, NATUREZA_DESPESA, NOME_NATUREZA_DESPESA
+- `data_inicio`: DT_LANCAMENTO, DATA_LIQUIDACAO, DATA_OP
+- `data_fim`: (nenhuma)
+
+### Amostras das colunas candidatas
+
+- `ANO_EMPENHO`: 2017
+- `ANO_LIQUIDACAO`: 2018
+- `ANO_OP`: 2018
+- `DT_LANCAMENTO`: 29/12/2017, 21/12/2017, 13/12/2017
+- `DATA_LIQUIDACAO`: 02/02/2018, 05/02/2018, 19/02/2018
+- `DATA_OP`: 08/02/2018, 09/02/2018, 22/02/2018
+- `VL_EMPENHADO`: 5960,00, 1799,40, 55998,00
+- `VL_NPD`: 5960, 1799,4, 55998
+- `VL_ANUL_NPD`: 0
+- `VALOR_BRUTO_OP`: 5960, 1799,4, 55998
+- `INSTRUMENTO_JURIDICO`: (sem valores)
+- `MODALIDADE_LICITACAO`: 8
+- `NATUREZA_DESPESA`: 459165
+- `NOME_NATUREZA_DESPESA`: CONSTITUIÇÃO OU AUMENTO DE CAPITAL DE EMPRESAS
+- `JUSTIFICATIVA_SUCINTA`: APORTE DE CAPITAL PARA A PRODABEL., APORTE DE CAPITAL PARA A PRODABEL. OFÍCIO PRODABEL DAF-PB 088/2017, -APORTE DE CAPITAL PARA A PRODABEL. OFÍCIO PRODABEL DAF-PB 102/2017.-
+- `NOME_CREDOR`: EMPRESA DE INFORMATICA E INFORMACAO DO MUNICIPIO DE BH S/A
+- `NUMERO_DOCUMENTO`: 18239038000187
+
+### Todas as colunas
+
+`ANO_EMPENHO`, `UO`, `EMPENHO`, `DT_LANCAMENTO`, `VL_EMPENHADO`, `ANULACAO`, `INSTRUMENTO_JURIDICO`, `ANO_LICITACAO`, `MODALIDADE_LICITACAO`, `NUMERO_LICITACAO`, `CLASSIFICACAO`, `CO`, `JUSTIFICATIVA_SUCINTA`, `ANO_LIQUIDACAO`, `UO_LIQUIDACAO`, `LIQUIDACAO`, `DATA_LIQUIDACAO`, `VL_NPD`, `VL_ANUL_NPD`, `NOME_CREDOR`, `NUMERO_DOCUMENTO`, `ANO_OP`, `NUM_OP`, `DATA_OP`, `VALOR_BRUTO_OP`, `UO.1`, `NOME_UO`, `UA`, `NOME_UA`, `FUNCAO`, `NOME_FUNÇÃO`, `SUBFUNCAO`, `NOME_SUBFUNCAO`, `PROGRAMA`, `NOME_PROGRAMA`, `SUBPROGRAMA`, `NOME_SUBPROGRAMA`, `PROJATIV`, `NOME_PROJATIV`, `SUBITEM_PROJATIV`, `NOME_SUBITEM_PROJATIV`, `NATUREZA_DESPESA`, `NOME_NATUREZA_DESPESA`, `ITEM_DESPESA`, `NOME_ITEM_DESPESA`, `COD_SIAFIC_GRUPO`, `DESC_SIAFIC_GRUPO`, `COD_SIAFIC_FONTE`, `DESC_SIAFIC_FONTE`, `COD_SIAFIC_DETALHAMENTO_FONTE`, `DESC_SIAFIC_DETALHAMENTO_FONTE`, `COD_SIAFIC_CODIGO_ORCAMENTARIO`, `DESC_SIAFIC_CODIGO_ORCAMENTARIO`, `FONTE`, `NOME_FONTE`, `FONTE_DETALHE`, `NOME_FONTE_DETALHE`
+
+## transparencia_despesas_2019.csv
+
+- Tipo: CSV
+- Encoding: `cp1252`
+- Separador: `;`
+- Total de colunas: 57
+
+### Colunas candidatas por campo
+
+- `ano`: ANO_EMPENHO, ANO_LIQUIDACAO, ANO_OP
+- `valor_total`: VL_EMPENHADO, VL_NPD, VL_ANUL_NPD, VALOR_BRUTO_OP
+- `cnpj`: NUMERO_DOCUMENTO
+- `nome_osc`: NOME_CREDOR
+- `objeto`: JUSTIFICATIVA_SUCINTA
+- `modalidade`: INSTRUMENTO_JURIDICO, MODALIDADE_LICITACAO, NATUREZA_DESPESA, NOME_NATUREZA_DESPESA
+- `data_inicio`: DT_LANCAMENTO, DATA_LIQUIDACAO, DATA_OP
+- `data_fim`: (nenhuma)
+
+### Amostras das colunas candidatas
+
+- `ANO_EMPENHO`: 2017
+- `ANO_LIQUIDACAO`: 2019
+- `ANO_OP`: 2019
+- `DT_LANCAMENTO`: 21/07/2017, 25/05/2017, 29/12/2017
+- `DATA_LIQUIDACAO`: 28/05/2019, 31/05/2019, 06/05/2019
+- `DATA_OP`: 17/06/2019, 10/05/2019
+- `VL_EMPENHADO`: 1200,00, 6695,00, 29250,00
+- `VL_NPD`: 1200, 515, 2851,53
+- `VL_ANUL_NPD`: 1200, 0
+- `VALOR_BRUTO_OP`: 1200, 515, 2851,53
+- `INSTRUMENTO_JURIDICO`: (sem valores)
+- `MODALIDADE_LICITACAO`: 5, 8
+- `NATUREZA_DESPESA`: 339039
+- `NOME_NATUREZA_DESPESA`: OUTROS SERVIÇOS DE TERCEIROS - PESSOA JURÍDICA
+- `JUSTIFICATIVA_SUCINTA`: RENOVAÇÃO DE CERTIFICADO DIGITAL PARA EQUIPAMENTO A1 E SERVIÇO DE AUTORIDADE REGISTRADORA., PRESTAÇÃO DE SERVIÇOS DE FORNECIMENTO DE LANCHE. RECURSO ORIUNDO DE TRANSFERÊNCIAS DA UNIÃO REFERENTE AO IGDSUAS., FORNECIMENTO DE ENERGIA ELÉTRICA.
+- `NOME_CREDOR`: SERVICO FEDERAL DE PROCESSAMENTO DE DADOS SERPRO, KARLA MARINHO BUFFET LTDA. - ME, CEMIG DISTRIBUICAO S.A
+- `NUMERO_DOCUMENTO`: 33683111000794, 07464587000139, 06981180000116
+
+### Todas as colunas
+
+`ANO_EMPENHO`, `UO`, `EMPENHO`, `DT_LANCAMENTO`, `VL_EMPENHADO`, `ANULACAO`, `INSTRUMENTO_JURIDICO`, `ANO_LICITACAO`, `MODALIDADE_LICITACAO`, `NUMERO_LICITACAO`, `CLASSIFICACAO`, `CO`, `JUSTIFICATIVA_SUCINTA`, `ANO_LIQUIDACAO`, `UO_LIQUIDACAO`, `LIQUIDACAO`, `DATA_LIQUIDACAO`, `VL_NPD`, `VL_ANUL_NPD`, `NOME_CREDOR`, `NUMERO_DOCUMENTO`, `ANO_OP`, `NUM_OP`, `DATA_OP`, `VALOR_BRUTO_OP`, `UO.1`, `NOME_UO`, `UA`, `NOME_UA`, `FUNCAO`, `NOME_FUNÇÃO`, `SUBFUNCAO`, `NOME_SUBFUNCAO`, `PROGRAMA`, `NOME_PROGRAMA`, `SUBPROGRAMA`, `NOME_SUBPROGRAMA`, `PROJATIV`, `NOME_PROJATIV`, `SUBITEM_PROJATIV`, `NOME_SUBITEM_PROJATIV`, `NATUREZA_DESPESA`, `NOME_NATUREZA_DESPESA`, `ITEM_DESPESA`, `NOME_ITEM_DESPESA`, `COD_SIAFIC_GRUPO`, `DESC_SIAFIC_GRUPO`, `COD_SIAFIC_FONTE`, `DESC_SIAFIC_FONTE`, `COD_SIAFIC_DETALHAMENTO_FONTE`, `DESC_SIAFIC_DETALHAMENTO_FONTE`, `COD_SIAFIC_CODIGO_ORCAMENTARIO`, `DESC_SIAFIC_CODIGO_ORCAMENTARIO`, `FONTE`, `NOME_FONTE`, `FONTE_DETALHE`, `NOME_FONTE_DETALHE`
+
+## transparencia_despesas_2020.csv
+
+- Tipo: CSV
+- Encoding: `cp1252`
+- Separador: `;`
+- Total de colunas: 57
+
+### Colunas candidatas por campo
+
+- `ano`: ANO_EMPENHO, ANO_LIQUIDACAO, ANO_OP
+- `valor_total`: VL_EMPENHADO, VL_NPD, VL_ANUL_NPD, VALOR_BRUTO_OP
+- `cnpj`: NUMERO_DOCUMENTO
+- `nome_osc`: NOME_CREDOR
+- `objeto`: JUSTIFICATIVA_SUCINTA
+- `modalidade`: INSTRUMENTO_JURIDICO, MODALIDADE_LICITACAO, NATUREZA_DESPESA, NOME_NATUREZA_DESPESA
+- `data_inicio`: DT_LANCAMENTO, DATA_LIQUIDACAO, DATA_OP
+- `data_fim`: (nenhuma)
+
+### Amostras das colunas candidatas
+
+- `ANO_EMPENHO`: 2017, 2018
+- `ANO_LIQUIDACAO`: 2020
+- `ANO_OP`: 2020
+- `DT_LANCAMENTO`: 29/12/2017, 12/07/2018, 03/09/2018
+- `DATA_LIQUIDACAO`: 29/01/2020, 23/06/2020, 03/01/2020
+- `DATA_OP`: 17/02/2020, 24/06/2020, 14/01/2020
+- `VL_EMPENHADO`: 1023,75, 600,00, 200000,00
+- `VL_NPD`: 45, 600, 4140
+- `VL_ANUL_NPD`: 0
+- `VALOR_BRUTO_OP`: 45, 600, 4140
+- `INSTRUMENTO_JURIDICO`: 012016080300500035, 012018080000030011, 012018060000140000
+- `MODALIDADE_LICITACAO`: 9, 12, 8
+- `NATUREZA_DESPESA`: 339030, 449035, 337170
+- `NOME_NATUREZA_DESPESA`: MATERIAL DE CONSUMO, SERVIÇOS DE CONSULTORIA, RATEIO PELA PARTICIPAÇÃO EM CONSÓRCIO PÚBLICO
+- `JUSTIFICATIVA_SUCINTA`: AQUISIÇÃO DE ÁGUA MINERAL, GALÃO DE 20 LITROS., AQUISIÇÃO DE ÁGUA MINERAL PARA ATENDER DEMANDA DA SMFA., -CONTRATAÇÃO DE SERVIÇOS DE APOIO TÉCNICO DE GESTÃO INTEGRADA, INOVAÇÃO E TRANSFORMAÇÃO DE PROCESSOS DE NEGÓCIO. PMAT IV- 10%.-
+- `NOME_CREDOR`: HIDROBRÁS ÁGUAS MINERAIS DO BRASIL LTDA., ELOGROUP DESENVOLVIMENTO E CONSULTORIA LTDA., CONSORCIO INTERMUNICIPAL ALIANCA PARA A SAUDE CIAS
+- `NUMERO_DOCUMENTO`: 42172429000700, 08670505000175, 97550393000149
+
+### Todas as colunas
+
+`ANO_EMPENHO`, `UO`, `EMPENHO`, `DT_LANCAMENTO`, `VL_EMPENHADO`, `ANULACAO`, `INSTRUMENTO_JURIDICO`, `ANO_LICITACAO`, `MODALIDADE_LICITACAO`, `NUMERO_LICITACAO`, `CLASSIFICACAO`, `CO`, `JUSTIFICATIVA_SUCINTA`, `ANO_LIQUIDACAO`, `UO_LIQUIDACAO`, `LIQUIDACAO`, `DATA_LIQUIDACAO`, `VL_NPD`, `VL_ANUL_NPD`, `NOME_CREDOR`, `NUMERO_DOCUMENTO`, `ANO_OP`, `NUM_OP`, `DATA_OP`, `VALOR_BRUTO_OP`, `UO.1`, `NOME_UO`, `UA`, `NOME_UA`, `FUNCAO`, `NOME_FUNÇÃO`, `SUBFUNCAO`, `NOME_SUBFUNCAO`, `PROGRAMA`, `NOME_PROGRAMA`, `SUBPROGRAMA`, `NOME_SUBPROGRAMA`, `PROJATIV`, `NOME_PROJATIV`, `SUBITEM_PROJATIV`, `NOME_SUBITEM_PROJATIV`, `NATUREZA_DESPESA`, `NOME_NATUREZA_DESPESA`, `ITEM_DESPESA`, `NOME_ITEM_DESPESA`, `COD_SIAFIC_GRUPO`, `DESC_SIAFIC_GRUPO`, `COD_SIAFIC_FONTE`, `DESC_SIAFIC_FONTE`, `COD_SIAFIC_DETALHAMENTO_FONTE`, `DESC_SIAFIC_DETALHAMENTO_FONTE`, `COD_SIAFIC_CODIGO_ORCAMENTARIO`, `DESC_SIAFIC_CODIGO_ORCAMENTARIO`, `FONTE`, `NOME_FONTE`, `FONTE_DETALHE`, `NOME_FONTE_DETALHE`
+
+## transparencia_despesas_2021.csv
+
+- Tipo: CSV
+- Encoding: `cp1252`
+- Separador: `;`
+- Total de colunas: 57
+
+### Colunas candidatas por campo
+
+- `ano`: ANO_EMPENHO, ANO_LIQUIDACAO, ANO_OP
+- `valor_total`: VL_EMPENHADO, VL_NPD, VL_ANUL_NPD, VALOR_BRUTO_OP
+- `cnpj`: NUMERO_DOCUMENTO
+- `nome_osc`: NOME_CREDOR
+- `objeto`: JUSTIFICATIVA_SUCINTA
+- `modalidade`: INSTRUMENTO_JURIDICO, MODALIDADE_LICITACAO, NATUREZA_DESPESA, NOME_NATUREZA_DESPESA
+- `data_inicio`: DT_LANCAMENTO, DATA_LIQUIDACAO, DATA_OP
+- `data_fim`: (nenhuma)
+
+### Amostras das colunas candidatas
+
+- `ANO_EMPENHO`: 2018, 2020
+- `ANO_LIQUIDACAO`: 2021
+- `ANO_OP`: 2021
+- `DT_LANCAMENTO`: 25/09/2018, 06/10/2020, 17/11/2020
+- `DATA_LIQUIDACAO`: 08/01/2021, 12/02/2021, 22/01/2021
+- `DATA_OP`: 18/02/2021, 29/01/2021, 21/01/2021
+- `VL_EMPENHADO`: 300689,81, 430,00, 39018,50
+- `VL_NPD`: 2056,66, 184,24, 33659,54
+- `VL_ANUL_NPD`: 2056,66, 0, 33659,54
+- `VALOR_BRUTO_OP`: 2056,66, 184,24, 33659,54
+- `INSTRUMENTO_JURIDICO`: 012015080300240601
+- `MODALIDADE_LICITACAO`: 8, 9
+- `NATUREZA_DESPESA`: 339092, 339039, 338041
+- `NOME_NATUREZA_DESPESA`: DESPESAS DE EXERCÍCIOS ANTERIORES, OUTROS SERVIÇOS DE TERCEIROS - PESSOA JURÍDICA, CONTRIBUIÇÕES
+- `JUSTIFICATIVA_SUCINTA`: DESPESAS COM PAGAMENTO DE TAXAS DE TARIFAS BANCÁRIAS NÃO CONTABILIZADAS DE 10/05 A 11/2017, CONTA CORRENTE 06000262-0 AGÊNCIA 0093 CEF., DESPESA REFERENTE A PRESTAÇÃO DE SERVIÇOS DE TELEFONIA FIXA., PAGAMENTO DE ANUIDADE DE ENTIDADE INTERNACIONAL ANO 2020.
+- `NOME_CREDOR`: CAIXA ECONOMICA FEDERAL, TELEMAR NORTE LESTE S/A, ASOCIACION MUNDIAL DE LAS GRANDES METROPOLIS
+- `NUMERO_DOCUMENTO`: 00360305009322, 33000118000179, 02381734508
+
+### Todas as colunas
+
+`ANO_EMPENHO`, `UO`, `EMPENHO`, `DT_LANCAMENTO`, `VL_EMPENHADO`, `ANULACAO`, `INSTRUMENTO_JURIDICO`, `ANO_LICITACAO`, `MODALIDADE_LICITACAO`, `NUMERO_LICITACAO`, `CLASSIFICACAO`, `CO`, `JUSTIFICATIVA_SUCINTA`, `ANO_LIQUIDACAO`, `UO_LIQUIDACAO`, `LIQUIDACAO`, `DATA_LIQUIDACAO`, `VL_NPD`, `VL_ANUL_NPD`, `NOME_CREDOR`, `NUMERO_DOCUMENTO`, `ANO_OP`, `NUM_OP`, `DATA_OP`, `VALOR_BRUTO_OP`, `UO.1`, `NOME_UO`, `UA`, `NOME_UA`, `FUNCAO`, `NOME_FUNÇÃO`, `SUBFUNCAO`, `NOME_SUBFUNCAO`, `PROGRAMA`, `NOME_PROGRAMA`, `SUBPROGRAMA`, `NOME_SUBPROGRAMA`, `PROJATIV`, `NOME_PROJATIV`, `SUBITEM_PROJATIV`, `NOME_SUBITEM_PROJATIV`, `NATUREZA_DESPESA`, `NOME_NATUREZA_DESPESA`, `ITEM_DESPESA`, `NOME_ITEM_DESPESA`, `COD_SIAFIC_GRUPO`, `DESC_SIAFIC_GRUPO`, `COD_SIAFIC_FONTE`, `DESC_SIAFIC_FONTE`, `COD_SIAFIC_DETALHAMENTO_FONTE`, `DESC_SIAFIC_DETALHAMENTO_FONTE`, `COD_SIAFIC_CODIGO_ORCAMENTARIO`, `DESC_SIAFIC_CODIGO_ORCAMENTARIO`, `FONTE`, `NOME_FONTE`, `FONTE_DETALHE`, `NOME_FONTE_DETALHE`
+
+## transparencia_despesas_2022.csv
+
+- Tipo: CSV
+- Encoding: `cp1252`
+- Separador: `;`
+- Total de colunas: 57
+
+### Colunas candidatas por campo
+
+- `ano`: ANO_EMPENHO, ANO_LIQUIDACAO, ANO_OP
+- `valor_total`: VL_EMPENHADO, VL_NPD, VL_ANUL_NPD, VALOR_BRUTO_OP
+- `cnpj`: NUMERO_DOCUMENTO
+- `nome_osc`: NOME_CREDOR
+- `objeto`: JUSTIFICATIVA_SUCINTA
+- `modalidade`: INSTRUMENTO_JURIDICO, MODALIDADE_LICITACAO, NATUREZA_DESPESA, NOME_NATUREZA_DESPESA
+- `data_inicio`: DT_LANCAMENTO, DATA_LIQUIDACAO, DATA_OP
+- `data_fim`: (nenhuma)
+
+### Amostras das colunas candidatas
+
+- `ANO_EMPENHO`: 2016, 2018
+- `ANO_LIQUIDACAO`: 2022
+- `ANO_OP`: 2022
+- `DT_LANCAMENTO`: 13/10/2016, 25/11/2016, 24/01/2018
+- `DATA_LIQUIDACAO`: 02/06/2022, 11/02/2022
+- `DATA_OP`: 03/06/2022, 18/02/2022
+- `VL_EMPENHADO`: 360946,47, 15805,96, 9000,00
+- `VL_NPD`: 59545,33, 15805,96, 9000
+- `VL_ANUL_NPD`: 0, 9000
+- `VALOR_BRUTO_OP`: 59545,33, 15805,96, 12000
+- `INSTRUMENTO_JURIDICO`: 012012230205970601, 012012230205970603
+- `MODALIDADE_LICITACAO`: 4, 8
+- `NATUREZA_DESPESA`: 456782, 339039
+- `NOME_NATUREZA_DESPESA`: APORTE DE RECURSOS PELO PARCEIRO PÚBLICO, OUTROS SERVIÇOS DE TERCEIROS - PESSOA JURÍDICA
+- `JUSTIFICATIVA_SUCINTA`: CONCESSÃO ADMINISTRATIVA PARA REALIZAÇÃO DE SERVIÇOS E OBRAS DE ENGENHARIA E PRESTAÇÃO DE SERVIÇOS DE APOIO NÃO ASSISTENCIAIS AO FUNCIONAMENTO DO HOSPITAL METRO, CONCESSÃO ADMINISTRATIVA PARA REALIZAÇÃO DE SERVIÇOS E OBRAS DE ENGENHARIA E PRESTAÇÃO DE SERVIÇOS DE APOIO NÃO ASSISTENCIAIS AO FUNCIONAMENTO DO HOSPITAL METRO, EMPENHO PARA PAGAMENTO PELA CONTRATAÇÃO DA REPRESENTAÇÃO ARTÍSTICA "PRINCESA DO CARNAVAL DE BH/2018".
+- `NOME_CREDOR`: ONM HEALTH S/A, ANDREIA DE OLIVEIRA MARQUES, MARIA LUIZA SIQUEIRA DE CARVALHO
+- `NUMERO_DOCUMENTO`: 11292024000188, 09864325639, 13290772616
+
+### Todas as colunas
+
+`ANO_EMPENHO`, `UO`, `EMPENHO`, `DT_LANCAMENTO`, `VL_EMPENHADO`, `ANULACAO`, `INSTRUMENTO_JURIDICO`, `ANO_LICITACAO`, `MODALIDADE_LICITACAO`, `NUMERO_LICITACAO`, `CLASSIFICACAO`, `CO`, `JUSTIFICATIVA_SUCINTA`, `ANO_LIQUIDACAO`, `UO_LIQUIDACAO`, `LIQUIDACAO`, `DATA_LIQUIDACAO`, `VL_NPD`, `VL_ANUL_NPD`, `NOME_CREDOR`, `NUMERO_DOCUMENTO`, `ANO_OP`, `NUM_OP`, `DATA_OP`, `VALOR_BRUTO_OP`, `UO.1`, `NOME_UO`, `UA`, `NOME_UA`, `FUNCAO`, `NOME_FUNÇÃO`, `SUBFUNCAO`, `NOME_SUBFUNCAO`, `PROGRAMA`, `NOME_PROGRAMA`, `SUBPROGRAMA`, `NOME_SUBPROGRAMA`, `PROJATIV`, `NOME_PROJATIV`, `SUBITEM_PROJATIV`, `NOME_SUBITEM_PROJATIV`, `NATUREZA_DESPESA`, `NOME_NATUREZA_DESPESA`, `ITEM_DESPESA`, `NOME_ITEM_DESPESA`, `COD_SIAFIC_GRUPO`, `DESC_SIAFIC_GRUPO`, `COD_SIAFIC_FONTE`, `DESC_SIAFIC_FONTE`, `COD_SIAFIC_DETALHAMENTO_FONTE`, `DESC_SIAFIC_DETALHAMENTO_FONTE`, `COD_SIAFIC_CODIGO_ORCAMENTARIO`, `DESC_SIAFIC_CODIGO_ORCAMENTARIO`, `FONTE`, `NOME_FONTE`, `FONTE_DETALHE`, `NOME_FONTE_DETALHE`
+
+## transparencia_despesas_2023.csv
+
+- Tipo: CSV
+- Encoding: `cp1252`
+- Separador: `;`
+- Total de colunas: 53
+
+### Colunas candidatas por campo
+
+- `ano`: ANO_EMPENHO, ANO_LIQUIDACAO, ANO_OP
+- `valor_total`: VL_EMPENHADO, VL_NPD, VL_ANUL_NPD, VALOR_BRUTO_OP
+- `cnpj`: NUMERO_DOCUMENTO
+- `nome_osc`: NOME_CREDOR
+- `objeto`: JUSTIFICATIVA_SUCINTA
+- `modalidade`: INSTRUMENTO_JURIDICO, MODALIDADE_LICITACAO, NATUREZA_DESPESA, NOME_NATUREZA_DESPESA
+- `data_inicio`: DT_LANCAMENTO, DATA_LIQUIDACAO, DATA_OP
+- `data_fim`: (nenhuma)
+
+### Amostras das colunas candidatas
+
+- `ANO_EMPENHO`: 2023
+- `ANO_LIQUIDACAO`: 2023
+- `ANO_OP`: 2023
+- `DT_LANCAMENTO`: 31/01/2023 00:00
+- `DATA_LIQUIDACAO`: 31/01/2023 00:00
+- `DATA_OP`: 03/02/2023 00:00
+- `VL_EMPENHADO`: 38199,36, 8089,42, 5461,2
+- `VL_NPD`: 38199,36, 8089,42, 5461,2
+- `VL_ANUL_NPD`: (sem valores)
+- `VALOR_BRUTO_OP`: 38199,36, 8089,42, 5461,2
+- `INSTRUMENTO_JURIDICO`: (sem valores)
+- `MODALIDADE_LICITACAO`: 8
+- `NATUREZA_DESPESA`: 319011, 319013, 339046
+- `NOME_NATUREZA_DESPESA`: VENCIMENTOS E VANTAGENS FIXAS - PESSOAL CIVIL, OBRIGAÇÕES PATRONAIS, AUXÍLIO-ALIMENTAÇÃO
+- `JUSTIFICATIVA_SUCINTA`: Apropriação de folha de pagamento do mês 01, Apropriação de folha de pagamento do mês 01, Patronal (INSS - PATRONAL)
+- `NOME_CREDOR`: MUNICIPIO DE BELO HORIZONTE, INSTITUTO NACIONAL DO SEGURO SOCIAL
+- `NUMERO_DOCUMENTO`: 1,87154E+13, 2,9979E+13
+
+### Todas as colunas
+
+`ANO_EMPENHO`, `UO`, `EMPENHO`, `DT_LANCAMENTO`, `VL_EMPENHADO`, `ANULACAO`, `INSTRUMENTO_JURIDICO`, `ANO_LICITACAO`, `MODALIDADE_LICITACAO`, `NUMERO_LICITACAO`, `CLASSIFICACAO`, `CO`, `JUSTIFICATIVA_SUCINTA`, `ANO_LIQUIDACAO`, `UO_LIQUIDACAO`, `LIQUIDACAO`, `DATA_LIQUIDACAO`, `VL_NPD`, `VL_ANUL_NPD`, `NOME_CREDOR`, `NUMERO_DOCUMENTO`, `ANO_OP`, `NUM_OP`, `DATA_OP`, `VALOR_BRUTO_OP`, `UO.1`, `NOME_UO`, `UA`, `NOME_UA`, `FUNCAO`, `NOME_FUNÇÃO`, `SUBFUNCAO`, `NOME_SUBFUNCAO`, `PROGRAMA`, `NOME_PROGRAMA`, `SUBPROGRAMA`, `NOME_SUBPROGRAMA`, `PROJATIV`, `NOME_PROJATIV`, `SUBITEM_PROJATIV`, `NOME_SUBITEM_PROJATIV`, `NATUREZA_DESPESA`, `NOME_NATUREZA_DESPESA`, `ITEM_DESPESA`, `NOME_ITEM_DESPESA`, `COD_SIAFIC_GRUPO`, `DESC_SIAFIC_GRUPO`, `COD_SIAFIC_FONTE`, `DESC_SIAFIC_FONTE`, `COD_SIAFIC_DETALHAMENTO_FONTE`, `DESC_SIAFIC_DETALHAMENTO_FONTE`, `COD_SIAFIC_CODIGO_ORCAMENTARIO`, `DESC_SIAFIC_CODIGO_ORCAMENTARIO`

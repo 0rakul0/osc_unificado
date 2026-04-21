@@ -18,7 +18,7 @@ from project_paths import (
     BASES_ORCAMENTO_GERAL_CAPITAIS_DIR,
     BASES_ORCAMENTO_GERAL_DIR,
     CAPITAIS_PROCESSADA_DIR,
-    HISTORIA_DIR,
+    HISTORIA_DATA_DIR,
     ORCAMENTO_GERAL_PROCESSADA_DIR,
     PROCESSADA_DIR,
     cli_default,
@@ -58,7 +58,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output",
-        default=cli_default(HISTORIA_DIR / "tracker_estado_capital_osc.csv"),
+        default=cli_default(HISTORIA_DATA_DIR / "tracker_estado_capital_osc.csv"),
         help="CSV de saida com o status consolidado.",
     )
     return parser.parse_args()

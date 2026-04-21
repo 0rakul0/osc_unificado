@@ -15,5 +15,6 @@ ORCAMENTO_GERAL_PROCESSADA_DIR = PATHS.orcamento_geral_processada_dir
 PROCESSADA_DIR = PATHS.processada_dir
 GOVERNO_FEDERAL_DIR = PATHS.governo_federal_dir
 HISTORIA_DIR = PATHS.historia_dir
+HISTORIA_DATA_DIR = PATHS.historia_data_dir
 AUDITORIA_XLSX_PATH = PATHS.auditoria_xlsx_path
 SQLITE_PATH = PATHS.sqlite_path

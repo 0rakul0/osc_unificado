@@ -402,67 +402,49 @@ def update_duplicate_flags(conn: sqlite3.Connection) -> None:
     conn.execute(f"UPDATE {TRANSFERENCIAS_ANALITICA_TABLE} SET duplicado_aparente = 0")
     conn.execute(
         f"""
+        CREATE INDEX IF NOT EXISTS idx_transferencias_analitica_id
+        ON {TRANSFERENCIAS_ANALITICA_TABLE}(transferencia_id);
+        """
+    )
+    conn.executescript(
+        f"""
+        DROP TABLE IF EXISTS temp_duplicate_ids;
+
+        CREATE TEMP TABLE temp_duplicate_ids AS
+        SELECT transferencia_id
+        FROM (
+            SELECT
+                rowid AS transferencia_id,
+                COUNT(*) OVER (
+                    PARTITION BY
+                        COALESCE(uf, '<vazio>'),
+                        COALESCE(CAST(ano AS TEXT), '<vazio>'),
+                        COALESCE(CAST(mes AS TEXT), '<vazio>'),
+                        CASE
+                            WHEN valor_total IS NULL THEN '<vazio>'
+                            ELSE printf('%.2f', CAST(valor_total AS NUMERIC))
+                        END,
+                        COALESCE(cnpj, '<vazio>'),
+                        COALESCE(nome_osc, '<vazio>'),
+                        COALESCE(municipio, '<vazio>'),
+                        COALESCE(objeto, '<vazio>'),
+                        COALESCE(modalidade, '<vazio>')
+                ) AS duplicate_count
+            FROM {TRANSFERENCIAS_TABLE}
+        ) duplicates
+        WHERE duplicate_count > 1;
+
+        CREATE INDEX IF NOT EXISTS idx_temp_duplicate_ids
+        ON temp_duplicate_ids(transferencia_id);
+
         UPDATE {TRANSFERENCIAS_ANALITICA_TABLE}
         SET duplicado_aparente = 1
         WHERE transferencia_id IN (
-            SELECT t.rowid
-            FROM {TRANSFERENCIAS_TABLE} t
-            JOIN (
-                SELECT
-                    COALESCE(uf, '<vazio>') AS uf_key,
-                    COALESCE(CAST(ano AS TEXT), '<vazio>') AS ano_key,
-                    COALESCE(CAST(mes AS TEXT), '<vazio>') AS mes_key,
-                    CASE
-                        WHEN valor_total IS NULL THEN '<vazio>'
-                        ELSE printf('%.2f', CAST(valor_total AS NUMERIC))
-                    END AS valor_key,
-                    COALESCE(cnpj, '<vazio>') AS cnpj_key,
-                    COALESCE(nome_osc, '<vazio>') AS nome_key,
-                    COALESCE(municipio, '<vazio>') AS municipio_key,
-                    COALESCE(objeto, '<vazio>') AS objeto_key,
-                    COALESCE(modalidade, '<vazio>') AS modalidade_key
-                FROM {TRANSFERENCIAS_TABLE}
-            ) normalized
-                ON normalized.uf_key = COALESCE(t.uf, '<vazio>')
-               AND normalized.ano_key = COALESCE(CAST(t.ano AS TEXT), '<vazio>')
-               AND normalized.mes_key = COALESCE(CAST(t.mes AS TEXT), '<vazio>')
-               AND normalized.valor_key = CASE
-                    WHEN t.valor_total IS NULL THEN '<vazio>'
-                    ELSE printf('%.2f', CAST(t.valor_total AS NUMERIC))
-               END
-               AND normalized.cnpj_key = COALESCE(t.cnpj, '<vazio>')
-               AND normalized.nome_key = COALESCE(t.nome_osc, '<vazio>')
-               AND normalized.municipio_key = COALESCE(t.municipio, '<vazio>')
-               AND normalized.objeto_key = COALESCE(t.objeto, '<vazio>')
-               AND normalized.modalidade_key = COALESCE(t.modalidade, '<vazio>')
-            JOIN (
-                SELECT
-                    COALESCE(uf, '<vazio>') AS uf_key,
-                    COALESCE(CAST(ano AS TEXT), '<vazio>') AS ano_key,
-                    COALESCE(CAST(mes AS TEXT), '<vazio>') AS mes_key,
-                    CASE
-                        WHEN valor_total IS NULL THEN '<vazio>'
-                        ELSE printf('%.2f', CAST(valor_total AS NUMERIC))
-                    END AS valor_key,
-                    COALESCE(cnpj, '<vazio>') AS cnpj_key,
-                    COALESCE(nome_osc, '<vazio>') AS nome_key,
-                    COALESCE(municipio, '<vazio>') AS municipio_key,
-                    COALESCE(objeto, '<vazio>') AS objeto_key,
-                    COALESCE(modalidade, '<vazio>') AS modalidade_key
-                FROM {TRANSFERENCIAS_TABLE}
-                GROUP BY 1,2,3,4,5,6,7,8,9
-                HAVING COUNT(*) > 1
-            ) dup
-                ON dup.uf_key = normalized.uf_key
-               AND dup.ano_key = normalized.ano_key
-               AND dup.mes_key = normalized.mes_key
-               AND dup.valor_key = normalized.valor_key
-               AND dup.cnpj_key = normalized.cnpj_key
-               AND dup.nome_key = normalized.nome_key
-               AND dup.municipio_key = normalized.municipio_key
-               AND dup.objeto_key = normalized.objeto_key
-               AND dup.modalidade_key = normalized.modalidade_key
-        )
+            SELECT transferencia_id
+            FROM temp_duplicate_ids
+        );
+
+        DROP TABLE IF EXISTS temp_duplicate_ids;
         """
     )
 

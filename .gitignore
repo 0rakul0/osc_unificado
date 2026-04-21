@@ -5,7 +5,30 @@
 !/historia/
 !/pages/
 !/utils/
+
+# Ambientes e artefatos Python
+.venv/
+__pycache__/
 *.pyc
-*.pyc
-/utils/__pycache__
-*.pyc
+/utils/__pycache__/
+
+# Logs e bancos locais
+*.log
+logs/
+*.sqlite
+
+# Nenhum parquet deve subir
+*.parquet
+
+# Artefatos gerados em historia devem ficar fora do repo
+historia/cnpj_cache.json
+historia/*.csv
+historia/*.xlsx
+historia/*.xls
+historia/*.pdf
+historia/*.parquet
+historia/**/*.csv
+historia/**/*.xlsx
+historia/**/*.xls
+historia/**/*.pdf
+historia/**/*.parquet

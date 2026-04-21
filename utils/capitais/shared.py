@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from decimal import Decimal, InvalidOperation
 import gc
 import json
 import re
@@ -136,6 +137,36 @@ def clean_document(series: pd.Series | None) -> pd.Series:
         return cleaned
     digits = cleaned.str.replace(r"\D", "", regex=True)
     return digits.mask(digits.eq("")).mask(digits.str.len().lt(11))
+
+
+def normalize_scientific_document(series: pd.Series | None) -> pd.Series:
+    cleaned = clean_text(series)
+    if cleaned.empty:
+        return cleaned
+
+    def convert(value: object) -> object:
+        if pd.isna(value):
+            return pd.NA
+
+        text = str(value).strip()
+        if not text:
+            return pd.NA
+
+        if "E+" not in text.upper():
+            digits = re.sub(r"\D", "", text)
+            return digits if digits else pd.NA
+
+        normalized = text.replace(".", "").replace(",", ".")
+        try:
+            number = Decimal(normalized)
+        except InvalidOperation:
+            digits = re.sub(r"\D", "", text)
+            return digits if digits else pd.NA
+
+        digits = format(number, "f").split(".")[0]
+        return digits if digits else pd.NA
+
+    return cleaned.map(convert).astype("string")
 
 
 def normalize_year_reference(series: pd.Series | None) -> pd.Series:
@@ -466,24 +497,41 @@ def map_sao_luis(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
 
 
 def map_campo_grande(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
-    ano = clean_text(frame.get("anoconvenio"))
-    _, mes = extract_year_month(frame.get("datainicio"))
+    data_inicio = clean_text(frame.get("dataempenho"))
+    ano, mes = extract_year_month(data_inicio)
+    ano = clean_text(frame.get("ano")).combine_first(ano)
+    modalidade = first_non_empty(
+        frame.get("elementodespesa"),
+        frame.get("orgao"),
+        frame.get("nomeunidadegestora"),
+    )
+    documento = clean_document(frame.get("cnpjfornecedor"))
+    pessoa_fisica = modalidade.str.contains(r"Pessoa F[ií]sica", case=False, na=False)
+    documento = documento.mask(pessoa_fisica)
     return standardize_frame(
         pd.DataFrame(
             {
                 "uf": city_series(frame, config.uf),
                 "origem": city_series(frame, ORIGEM_CAPITAIS),
                 "ano": ano,
-                "valor_total": frame.get("valoconveniado"),
-                "cnpj": pd.Series(pd.NA, index=frame.index, dtype="string"),
-                "nome_osc": pd.Series(pd.NA, index=frame.index, dtype="string"),
+                "valor_total": first_non_empty(
+                    frame.get("total_pago"),
+                    frame.get("total_liquidado"),
+                    frame.get("total_empenhado"),
+                ),
+                "cnpj": documento,
+                "nome_osc": frame.get("nomefornecedor"),
                 "mes": mes,
                 "cod_municipio": pd.Series(pd.NA, index=frame.index, dtype="string"),
                 "municipio": city_series(frame, config.municipio),
-                "objeto": first_non_empty(frame.get("finalidade"), frame.get("nomeconvenio")),
-                "modalidade": frame.get("orgaoconcedente"),
-                "data_inicio": frame.get("datainicio"),
-                "data_fim": frame.get("datafim"),
+                "objeto": first_non_empty(
+                    frame.get("itemclassificacaodespesa"),
+                    frame.get("fonte"),
+                    frame.get("orgao"),
+                ),
+                "modalidade": modalidade,
+                "data_inicio": data_inicio,
+                "data_fim": pd.Series(pd.NA, index=frame.index, dtype="string"),
             }
         )
     )
@@ -538,6 +586,58 @@ def map_belo_horizonte(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFra
                 "modalidade": first_non_empty(frame.get("natureza"), frame.get("tipo_contrato"), frame.get("situao")),
                 "data_inicio": frame.get("data_inicio_vigencia"),
                 "data_fim": frame.get("data_fim_vigencia"),
+            }
+        )
+    )
+
+
+def map_belo_horizonte_despesas(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
+    data_referencia = first_non_empty(
+        frame.get("data_op"),
+        frame.get("DATA_OP"),
+        frame.get("data_liquidacao"),
+        frame.get("DATA_LIQUIDACAO"),
+        frame.get("dt_lancamento"),
+        frame.get("DT_LANCAMENTO"),
+    )
+    ano, mes = extract_year_month(data_referencia)
+    return standardize_frame(
+        pd.DataFrame(
+            {
+                "uf": city_series(frame, config.uf),
+                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "ano": first_non_empty(
+                    frame.get("ano_op"),
+                    frame.get("ANO_OP"),
+                    frame.get("ano_liquidacao"),
+                    frame.get("ANO_LIQUIDACAO"),
+                    frame.get("ano_empenho"),
+                    frame.get("ANO_EMPENHO"),
+                ).combine_first(ano),
+                "valor_total": first_non_empty(
+                    frame.get("valor_bruto_op"),
+                    frame.get("VALOR_BRUTO_OP"),
+                    frame.get("vl_npd"),
+                    frame.get("VL_NPD"),
+                    frame.get("vl_empenhado"),
+                    frame.get("VL_EMPENHADO"),
+                ),
+                "cnpj": normalize_scientific_document(first_non_empty(frame.get("numero_documento"), frame.get("NUMERO_DOCUMENTO"))),
+                "nome_osc": first_non_empty(frame.get("nome_credor"), frame.get("NOME_CREDOR")),
+                "mes": mes,
+                "cod_municipio": pd.Series(pd.NA, index=frame.index, dtype="string"),
+                "municipio": city_series(frame, config.municipio),
+                "objeto": first_non_empty(frame.get("justificativa_sucinta"), frame.get("JUSTIFICATIVA_SUCINTA")),
+                "modalidade": first_non_empty(
+                    frame.get("modalidade_licitacao"),
+                    frame.get("MODALIDADE_LICITACAO"),
+                    frame.get("nome_natureza_despesa"),
+                    frame.get("NOME_NATUREZA_DESPESA"),
+                    frame.get("natureza_despesa"),
+                    frame.get("NATUREZA_DESPESA"),
+                ),
+                "data_inicio": data_referencia,
+                "data_fim": pd.Series(pd.NA, index=frame.index, dtype="string"),
             }
         )
     )
@@ -643,23 +743,38 @@ def map_aracaju(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
 
 
 def map_boavista(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
-    ano, mes = extract_year_month(frame.get("data_inicio"))
+    data_inicio = clean_text(frame.get("DATAE"))
+    ano = clean_text(frame.get("DATAE")).str.extract(r"((?:19|20)\d{2})", expand=False).astype("string")
+    _, mes = extract_year_month(data_inicio)
     return standardize_frame(
         pd.DataFrame(
             {
                 "uf": city_series(frame, config.uf),
                 "origem": city_series(frame, ORIGEM_CAPITAIS),
-                "ano": clean_text(frame.get("ano")).combine_first(ano),
-                "valor_total": frame.get("valor_total"),
-                "cnpj": pd.Series(pd.NA, index=frame.index, dtype="string"),
-                "nome_osc": pd.Series(pd.NA, index=frame.index, dtype="string"),
+                "ano": ano,
+                "valor_total": first_non_empty(
+                    frame.get("PAGO"),
+                    frame.get("LIQUIDADO"),
+                    frame.get("EMPENHADO"),
+                ),
+                "cnpj": frame.get("CPFFORMATADO"),
+                "nome_osc": frame.get("NOMEFOR"),
                 "mes": mes,
                 "cod_municipio": pd.Series(pd.NA, index=frame.index, dtype="string"),
                 "municipio": city_series(frame, config.municipio),
-                "objeto": first_non_empty(frame.get("objeto"), frame.get("numero"), frame.get("codigo_plano_acao")),
-                "modalidade": first_non_empty(frame.get("tipo_instrumento"), frame.get("status"), frame.get("orgao")),
-                "data_inicio": frame.get("data_inicio"),
-                "data_fim": frame.get("data_fim"),
+                "objeto": first_non_empty(
+                    frame.get("PRODU"),
+                    frame.get("PROJETO_ATIVIDADE_NOME"),
+                    frame.get("PROGRAMANOME"),
+                    frame.get("PROC"),
+                ),
+                "modalidade": first_non_empty(
+                    frame.get("DESCLICIT_DETALHESEMPENHO"),
+                    frame.get("NATUREZA"),
+                    frame.get("FUNCAONOME"),
+                ),
+                "data_inicio": data_inicio,
+                "data_fim": pd.Series(pd.NA, index=frame.index, dtype="string"),
             }
         )
     )
@@ -849,7 +964,18 @@ CAPITAL_CONFIGS = [
     CapitalConfig("saoluis", "MA", "Sao Luis", "Sao Luis", "saoluis_*.csv", "csv", map_sao_luis, csv_encoding="latin1"),
     CapitalConfig("belohorizonte", "MG", "Belo Horizonte", "Belo Horizonte", "belohorizonte_convenios_repasse.csv", "csv", map_belo_horizonte, csv_sep=",", require_cnpj=False),
     CapitalConfig("cuiaba", "MT", "Cuiaba", "Cuiaba", "cuiaba_convenio_*.json", "json", map_cuiaba, require_cnpj=False),
-    CapitalConfig("campogrande", "MS", "Campo Grande", "Campo Grande", "campogrande_repasses_estaduais_*.csv", "csv", map_campo_grande, require_cnpj=False),
+    CapitalConfig(
+        "campogrande",
+        "MS",
+        "Campo Grande",
+        "Campo Grande",
+        "Consulta_de_Despesas__*.csv",
+        "csv",
+        map_campo_grande,
+        csv_encoding="utf-8-sig",
+        require_cnpj=True,
+        latest_only=True,
+    ),
     CapitalConfig("belem", "PA", "Belem", "Belem", "belem_convenios_*.html", "html", map_belem, require_cnpj=False, html_table_index=5),
     CapitalConfig("joaopessoa", "PB", "Joao Pessoa", "Joao Pessoa", "joaopessoa_convenios_api_enriquecido.json", "json", map_joao_pessoa),
     CapitalConfig("recife", "PE", "Recife", "Recife", "recife_contratos_gestao_2023.csv", "csv", map_recife, csv_sep=";"),
@@ -858,7 +984,7 @@ CAPITAL_CONFIGS = [
     CapitalConfig("natal", "RN", "Natal", "Natal", "natal_contratos_osc_enriquecido.json", "json", map_natal),
     CapitalConfig("portoalegre", "RS", "Porto Alegre", "Porto Alegre", "portoalegre_convenios.csv", "csv", map_porto_alegre, csv_sep=",", require_cnpj=False),
     CapitalConfig("portovelho", "RO", "Porto Velho", "Porto Velho", "portovelho_convenios_api_filtrado.json", "json", map_porto_velho),
-    CapitalConfig("boavista", "RR", "Boa Vista", "Boa Vista", "boavista_convenios.csv", "csv", map_boavista, csv_sep=",", require_cnpj=False),
+    CapitalConfig("boavista", "RR", "Boa Vista", "Boa Vista", "boavista_despesas_gerais_*.json", "json", map_boavista),
     CapitalConfig("aracaju", "SE", "Aracaju", "Aracaju", "aracaju_repasses_ongs.csv", "csv", map_aracaju, csv_sep=",", require_cnpj=False),
     CapitalConfig("florianopolis", "SC", "Florianopolis", "Florianopolis", "florianopolis_convenios_enriquecido.json", "json", map_florianopolis),
     CapitalConfig("saopaulo", "SP", "Sao Paulo", "Sao Paulo", "sao_paulo_parcerias_educacao_infantil_*.csv", "csv", map_sao_paulo, csv_sep=";", csv_encoding="latin1"),

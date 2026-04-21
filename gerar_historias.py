@@ -9,12 +9,13 @@ import pandas as pd
 import requests
 
 import dashboard_parquets as app
-from project_paths import HISTORIA_DIR
+from project_paths import HISTORIA_DATA_DIR, HISTORIA_DIR
 
 
 BASE_DIR = Path(__file__).resolve().parent
 HISTORY_DIR = HISTORIA_DIR
-CNPJ_CACHE_PATH = HISTORY_DIR / "cnpj_cache.json"
+HISTORY_DATA_DIR = HISTORIA_DATA_DIR
+CNPJ_CACHE_PATH = HISTORY_DATA_DIR / "cnpj_cache.json"
 RECEITA_SERVICE_URL = "https://www.gov.br/pt-br/servicos/consultar-cadastro-nacional-de-pessoas-juridicas"
 RECEITA_PROOF_URL = "https://solucoes.receita.fazenda.gov.br/Servicos/cnpjreva/cnpjreva_solicitacao.asp"
 TRANSFEREGOV_URL = "https://www.gov.br/planejamento/pt-br/acesso-a-informacao/convenios-e-transparencias"
@@ -109,7 +110,7 @@ def load_cnpj_cache() -> dict[str, dict[str, object]]:
 
 
 def save_cnpj_cache(cache: dict[str, dict[str, object]]) -> None:
-    HISTORY_DIR.mkdir(exist_ok=True)
+    HISTORY_DATA_DIR.mkdir(parents=True, exist_ok=True)
     CNPJ_CACHE_PATH.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
 
 

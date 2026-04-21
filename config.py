@@ -18,6 +18,7 @@ class PathsConfig:
     processada_dir: Path
     governo_federal_dir: Path
     historia_dir: Path
+    historia_data_dir: Path
     auditoria_xlsx_path: Path
     sqlite_path: Path
 
@@ -59,6 +60,7 @@ ENV_VARS = {
     "processada_dir": "OSC_PROCESSADA_DIR",
     "governo_federal_dir": "OSC_GOVERNO_FEDERAL_DIR",
     "historia_dir": "OSC_HISTORIA_DIR",
+    "historia_data_dir": "OSC_HISTORIA_DATA_DIR",
     "auditoria_xlsx_path": "OSC_AUDITORIA_XLSX_PATH",
     "sqlite_path": "OSC_SQLITE_PATH",
 }
@@ -118,6 +120,7 @@ PATHS = PathsConfig(
     processada_dir=_resolve_configured_path(
         ENV_VARS["processada_dir"],
         "processada",
+        ["processada"],
     ),
     governo_federal_dir=_resolve_configured_path(
         ENV_VARS["governo_federal_dir"],
@@ -128,9 +131,15 @@ PATHS = PathsConfig(
         ENV_VARS["historia_dir"],
         "historia",
     ),
+    historia_data_dir=_resolve_configured_path(
+        ENV_VARS["historia_data_dir"],
+        "historia",
+        ["historia"],
+    ),
     auditoria_xlsx_path=_resolve_configured_path(
         ENV_VARS["auditoria_xlsx_path"],
         "auditoria_processada.xlsx",
+        ["historia/auditoria_processada.xlsx", "auditoria_processada.xlsx"],
     ),
     sqlite_path=_resolve_configured_path(
         ENV_VARS["sqlite_path"],
@@ -156,6 +165,7 @@ ORCAMENTO_GERAL_PROCESSADA_DIR = PATHS.orcamento_geral_processada_dir
 PROCESSADA_DIR = PATHS.processada_dir
 GOVERNO_FEDERAL_DIR = PATHS.governo_federal_dir
 HISTORIA_DIR = PATHS.historia_dir
+HISTORIA_DATA_DIR = PATHS.historia_data_dir
 AUDITORIA_XLSX_PATH = PATHS.auditoria_xlsx_path
 SQLITE_PATH = PATHS.sqlite_path
 

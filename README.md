@@ -178,6 +178,14 @@ python utils/orcamento_geral/gerar_tracker_estado_capital_osc.py
 
 O tracker gerado resume o status de estado e capital, incluindo um sinal heuristico de OSC.
 
+Para gerar uma auditoria matricial dos `valor_total = 0` nas capitais, com linhas por ano e colunas por UF, use:
+
+```powershell
+python utils/capitais/auditar_valor_total_zerado.py
+```
+
+O arquivo Excel gerado traz matrizes de contagem de zeros, percentual de zeros, soma anual por UF e um indicador para anos em que a soma anual da capital ficou zerada.
+
 ## Workflow dos scripts
 
 ### 1. Consolidacao inicial
