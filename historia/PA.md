@@ -120,11 +120,12 @@ _Fonte local deste bloco: `E:\dados\orcamento_geral_processada\PA.parquet`; camp
 
 ### Capital (Belem)
 
-- Parquet da capital consolidado: `E:\dados\capitais_processada\PA_BELEM.parquet` (2 linhas).
+- Parquet da capital consolidado: `E:\dados\capitais_processada\PA_BELEM.parquet` (248.445 linhas).
 - Pasta bruta usada no pipeline da capital: `E:\dados\bases_convenios_capitais\Belem`.
-- Exemplos de arquivos brutos da capital: `belem_convenios_consulta_todos_2000_2026.html`, `belem_convenios_export.bin`.
-- Scripts associados a capital: `utils/orcamento_geral/processar_orcamento_geral_capitais.py`.
-- Fontes oficiais registradas para a capital: [transparencia.belem.pa.gov.br/giig/portais/portaldatransparencia/Despesas/wfrmConsultaConveniosSemLayout.aspx](https://transparencia.belem.pa.gov.br/giig/portais/portaldatransparencia/Despesas/wfrmConsultaConveniosSemLayout.aspx).
+- Arquivos brutos da capital: `belem_despesas_2020.json`, `belem_despesas_2021.json`, `belem_despesas_2022.json`, `belem_despesas_2023.json`, `belem_despesas_2024.json`, `belem_despesas_2025.json`, `belem_despesas_2026.json`, `belem_despesas_manifest.json`.
+- Scripts associados a capital: `utils/capitais/downloads/baixar_despesas_capital_belem.py`, `utils/capitais/processar_capitais.py`, `utils/capitais/parsers/belem.py`.
+- Fontes oficiais registradas para a capital: [despesas detalhadas GIIG](https://transparencia.belem.pa.gov.br/giig/portais/portaldatransparencia/despesas/wfrmConsultaDespesasParaSemLayout.aspx).
+- Recorte documentado em 2026-05-13: despesas detalhadas por empenho para os anos disponiveis no portal, de `2020` a `2026` ate maio, com 248.445 linhas processadas. Cobertura com registros: `2020-04` a `2020-12`; `2021-03` a `2021-07` e `2021-09` a `2021-12`; `2022-03` a `2022-12`; `2023-01` a `2023-10` e `2023-12`; `2024-01` e `2024-03` a `2024-12`; `2025-01`, `2025-04`, `2025-05` e `2025-07` a `2025-11`; `2026-02` a `2026-05`. Meses sem linhas nessa lista foram consultados e retornaram zero no portal. O coletor aceita retomada incremental com `--resume`.
 
 ## Conclusao
 

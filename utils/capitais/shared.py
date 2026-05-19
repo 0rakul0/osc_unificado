@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 from decimal import Decimal, InvalidOperation
 import gc
 import json
@@ -137,6 +138,33 @@ def clean_document(series: pd.Series | None) -> pd.Series:
         return cleaned
     digits = cleaned.str.replace(r"\D", "", regex=True)
     return digits.mask(digits.eq("")).mask(digits.str.len().lt(11))
+
+
+def is_valid_cnpj_value(value: object) -> bool:
+    if pd.isna(value):
+        return False
+
+    digits = re.sub(r"\D", "", str(value))
+    if len(digits) != 14 or len(set(digits)) == 1:
+        return False
+
+    numbers = [int(digit) for digit in digits]
+
+    def calculate_digit(items: list[int], weights: list[int]) -> int:
+        remainder = sum(item * weight for item, weight in zip(items, weights)) % 11
+        return 0 if remainder < 2 else 11 - remainder
+
+    first_digit = calculate_digit(numbers[:12], [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+    second_digit = calculate_digit(numbers[:13], [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+    return numbers[12] == first_digit and numbers[13] == second_digit
+
+
+def valid_cnpj_digits(series: pd.Series | None) -> pd.Series:
+    cleaned = clean_text(series)
+    if cleaned.empty:
+        return cleaned
+    digits = cleaned.str.replace(r"\D", "", regex=True)
+    return digits.where(digits.map(is_valid_cnpj_value), pd.NA)
 
 
 def normalize_scientific_document(series: pd.Series | None) -> pd.Series:
@@ -345,6 +373,30 @@ def map_vitoria(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
 
 
 def map_fortaleza(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
+    if {"AnoTitulo", "TOTAL NO PERIODO", "DocumentoDigitos", "FAVORECIDO"}.issubset(frame.columns):
+        valid_cnpj = valid_cnpj_digits(frame.get("DocumentoDigitos"))
+        filtered = frame.loc[valid_cnpj.notna()].copy()
+        valid_cnpj = valid_cnpj.loc[filtered.index]
+        return standardize_frame(
+            pd.DataFrame(
+                {
+                    "uf": city_series(filtered, config.uf),
+                    "origem": city_series(filtered, ORIGEM_CAPITAIS),
+                    "ano": filtered.get("AnoTitulo"),
+                    "valor_total": filtered.get("TOTAL NO PERIODO"),
+                    "cnpj": valid_cnpj,
+                    "nome_osc": filtered.get("FAVORECIDO"),
+                    "mes": pd.Series(pd.NA, index=filtered.index, dtype="string"),
+                    "cod_municipio": pd.Series(pd.NA, index=filtered.index, dtype="string"),
+                    "municipio": city_series(filtered, config.municipio),
+                    "objeto": pd.Series(pd.NA, index=filtered.index, dtype="string"),
+                    "modalidade": pd.Series(pd.NA, index=filtered.index, dtype="string"),
+                    "data_inicio": pd.Series(pd.NA, index=filtered.index, dtype="string"),
+                    "data_fim": pd.Series(pd.NA, index=filtered.index, dtype="string"),
+                }
+            )
+        )
+
     data_inicio, data_fim = split_vigencia_series(frame.get("Vigência"))
     ano, mes = extract_year_month(frame.get("Data Celebração"))
     return standardize_frame(
@@ -399,6 +451,9 @@ def map_cuiaba(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
 
 
 def map_belem(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
+    if {"ano_consulta", "mes_consulta", "empenho", "fornecedor", "valor"}.issubset(frame.columns):
+        return map_belem_despesas(frame, config)
+
     data_inicio, data_fim = split_vigencia_series(frame.get("Vigência"))
     ano_vigencia, mes_vigencia = extract_year_month(data_inicio)
     ano_convenio = clean_text(frame.get("Ano do Convênio")).replace({"0": pd.NA})
@@ -418,6 +473,32 @@ def map_belem(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
                 "modalidade": frame.get("Cedente"),
                 "data_inicio": data_inicio,
                 "data_fim": data_fim,
+            }
+        )
+    )
+
+
+def map_belem_despesas(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
+    ano_empenho, mes_empenho = extract_year_month(frame.get("data_empenho"))
+    ano_pagamento, mes_pagamento = extract_year_month(frame.get("data_pagamento"))
+    ano = first_non_empty(frame.get("ano_consulta"), ano_empenho, ano_pagamento)
+    mes = first_non_empty(frame.get("mes_consulta"), mes_empenho, mes_pagamento)
+    return standardize_frame(
+        pd.DataFrame(
+            {
+                "uf": city_series(frame, config.uf),
+                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "ano": ano,
+                "valor_total": frame.get("valor"),
+                "cnpj": pd.Series(pd.NA, index=frame.index, dtype="string"),
+                "nome_osc": frame.get("fornecedor"),
+                "mes": mes,
+                "cod_municipio": pd.Series(pd.NA, index=frame.index, dtype="string"),
+                "municipio": city_series(frame, config.municipio),
+                "objeto": first_non_empty(frame.get("empenho"), frame.get("unidade_gestora")),
+                "modalidade": first_non_empty(frame.get("situacao"), frame.get("unidade_gestora")),
+                "data_inicio": first_non_empty(frame.get("data_pagamento"), frame.get("data_liquidacao"), frame.get("data_empenho")),
+                "data_fim": frame.get("data_vencimento"),
             }
         )
     )
@@ -853,6 +934,9 @@ def map_natal(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
 
 
 def map_florianopolis(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
+    if {"ano_consulta", "mes_consulta", "valor_pago", "valor_liquidado", "valor_empenhado"}.issubset(frame.columns):
+        return map_florianopolis_despesas(frame, config)
+
     data_inicio = first_non_empty(frame.get("inicioVigencia"), frame.get("assinatura"))
     data_fim = frame.get("vencimento")
     ano, mes = extract_year_month(data_inicio)
@@ -861,17 +945,39 @@ def map_florianopolis(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFram
             {
                 "uf": city_series(frame, config.uf),
                 "origem": city_series(frame, ORIGEM_CAPITAIS),
-                "ano": ano,
+                "ano": first_non_empty(frame.get("ano_extracao"), ano),
                 "valor_total": first_non_empty(frame.get("valorTotal"), frame.get("valorPagoTotal"), frame.get("valorEmpenhadoTotal")),
-                "cnpj": frame.get("recebedor_cnpj"),
+                "cnpj": first_non_empty(frame.get("recebedor_cnpj"), frame.get("recebedor_cpfCnpj")),
                 "nome_osc": frame.get("recebedor_nome"),
                 "mes": mes,
                 "cod_municipio": pd.Series(pd.NA, index=frame.index, dtype="string"),
                 "municipio": city_series(frame, config.municipio),
                 "objeto": frame.get("objetoResumido"),
-                "modalidade": first_non_empty(frame.get("tipo"), frame.get("numero")),
+                "modalidade": first_non_empty(frame.get("tipo"), frame.get("numeroFormatado"), frame.get("numero")),
                 "data_inicio": data_inicio,
                 "data_fim": data_fim,
+            }
+        )
+    )
+
+
+def map_florianopolis_despesas(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
+    return standardize_frame(
+        pd.DataFrame(
+            {
+                "uf": city_series(frame, config.uf),
+                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "ano": first_non_empty(frame.get("ano"), frame.get("ano_consulta")),
+                "valor_total": first_non_empty(frame.get("valor_total"), frame.get("valor_pago"), frame.get("valor_liquidado"), frame.get("valor_empenhado")),
+                "cnpj": frame.get("cnpj"),
+                "nome_osc": frame.get("nome_osc"),
+                "mes": frame.get("mes_consulta"),
+                "cod_municipio": pd.Series(pd.NA, index=frame.index, dtype="string"),
+                "municipio": city_series(frame, config.municipio),
+                "objeto": frame.get("objeto"),
+                "modalidade": first_non_empty(frame.get("modalidade"), frame.get("licitacao"), frame.get("contrato")),
+                "data_inicio": frame.get("data_inicio"),
+                "data_fim": pd.Series(pd.NA, index=frame.index, dtype="string"),
             }
         )
     )
@@ -904,6 +1010,9 @@ def map_sao_paulo(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
 
 
 def map_teresina(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
+    if {"ano", "data_empenho", "valor_pago", "favorecido_cpf_cnpj", "favorecido_nome"}.issubset(frame.columns):
+        return map_teresina_despesas(frame, config)
+
     data_inicio = frame.get("Data assinatura")
     data_fim = pd.Series(pd.NA, index=frame.index, dtype="string")
     ano, mes = extract_year_month(first_non_empty(frame.get("Data da liberação da última parcela"), data_inicio))
@@ -928,7 +1037,38 @@ def map_teresina(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
     )
 
 
+def map_teresina_despesas(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
+    data_referencia = first_non_empty(frame.get("data_pagamento"), frame.get("data_empenho"))
+    ano, mes = extract_year_month(data_referencia)
+    return standardize_frame(
+        pd.DataFrame(
+            {
+                "uf": city_series(frame, config.uf),
+                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "ano": first_non_empty(frame.get("ano"), ano),
+                "valor_total": first_non_empty(frame.get("valor_pago"), frame.get("valor_empenho")),
+                "cnpj": frame.get("favorecido_cpf_cnpj"),
+                "nome_osc": frame.get("favorecido_nome"),
+                "mes": mes,
+                "cod_municipio": pd.Series(pd.NA, index=frame.index, dtype="string"),
+                "municipio": city_series(frame, config.municipio),
+                "objeto": first_non_empty(frame.get("empenho"), frame.get("orgao")),
+                "modalidade": frame.get("orgao"),
+                "data_inicio": data_referencia,
+                "data_fim": pd.Series(pd.NA, index=frame.index, dtype="string"),
+            }
+        )
+    )
+
+
 def map_palmas(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
+    if {"fase_despesa", "valor_pago", "cgc_fornecedor"}.issubset(frame.columns) or {
+        "fase_despesa",
+        "valor_pago",
+        "cnpj",
+    }.issubset(frame.columns):
+        return map_palmas_despesas(frame, config)
+
     ano, mes = extract_year_month(frame.get("data_assinatura"))
     return standardize_frame(
         pd.DataFrame(
@@ -951,13 +1091,41 @@ def map_palmas(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
     )
 
 
+def map_palmas_despesas(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
+    ano, mes = extract_year_month(frame.get("data_inicio"))
+    return standardize_frame(
+        pd.DataFrame(
+            {
+                "uf": city_series(frame, config.uf),
+                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "ano": first_non_empty(frame.get("ano_consulta"), ano, frame.get("ano")),
+                "valor_total": first_non_empty(
+                    frame.get("valor_total"),
+                    frame.get("valor_pago"),
+                    frame.get("valor_liquidado"),
+                    frame.get("valor_empenhado"),
+                ),
+                "cnpj": first_non_empty(frame.get("cnpj"), frame.get("cgc_fornecedor")),
+                "nome_osc": first_non_empty(frame.get("nome_osc"), frame.get("fornecedor")),
+                "mes": first_non_empty(frame.get("mes_consulta"), mes),
+                "cod_municipio": pd.Series(pd.NA, index=frame.index, dtype="string"),
+                "municipio": city_series(frame, config.municipio),
+                "objeto": first_non_empty(frame.get("objeto"), frame.get("historico")),
+                "modalidade": first_non_empty(frame.get("modalidade"), frame.get("fase_despesa")),
+                "data_inicio": frame.get("data_inicio"),
+                "data_fim": pd.Series(pd.NA, index=frame.index, dtype="string"),
+            }
+        )
+    )
+
+
 CAPITAL_CONFIGS = [
     CapitalConfig("riobranco", "AC", "Rio Branco", "Rio Branco", "*.json", "json", map_rio_branco),
     CapitalConfig("maceio", "AL", "Maceió", "Maceio", "maceio_*.json", "json", map_maceio),
     CapitalConfig("macapa", "AP", "Macapá", "MACAPA", "macapa_*.csv", "csv", map_macapa),
     CapitalConfig("manaus", "AM", "Manaus", "Manaus", "manaus_*.json", "json", map_manaus),
     CapitalConfig("salvador", "BA", "Salvador", "Salvador", "salvador_*.json", "json", map_salvador),
-    CapitalConfig("fortaleza", "CE", "Fortaleza", "Fortaleza", "fortaleza_convenios_*.html", "html", map_fortaleza, require_cnpj=False),
+    CapitalConfig("fortaleza", "CE", "Fortaleza", "Fortaleza", "*.csv", "fortaleza_despesas_csv", map_fortaleza, require_cnpj=True),
     CapitalConfig("brasilia", "DF", "Brasilia", "Brasilia", "brasilia_convenios_*.csv", "csv", map_brasilia, csv_skiprows=1),
     CapitalConfig("vitoria", "ES", "Vitoria", "Vitoria", "vitoria_convenios_ug*_*.csv", "csv", map_vitoria, csv_sep=",", csv_encoding="latin1"),
     CapitalConfig("goiania", "GO", "Goiania", "Goiania", "goiania_convenios_20*.csv", "csv", map_goiania, csv_sep=","),
@@ -976,7 +1144,7 @@ CAPITAL_CONFIGS = [
         require_cnpj=True,
         latest_only=True,
     ),
-    CapitalConfig("belem", "PA", "Belem", "Belem", "belem_convenios_*.html", "html", map_belem, require_cnpj=False, html_table_index=5),
+    CapitalConfig("belem", "PA", "Belem", "Belem", "belem_despesas_20*.json", "json", map_belem, require_cnpj=False),
     CapitalConfig("joaopessoa", "PB", "Joao Pessoa", "Joao Pessoa", "joaopessoa_convenios_api_enriquecido.json", "json", map_joao_pessoa),
     CapitalConfig("recife", "PE", "Recife", "Recife", "recife_contratos_gestao_2023.csv", "csv", map_recife, csv_sep=";"),
     CapitalConfig("curitiba", "PR", "Curitiba", "Curitiba", "curitiba_convenios.csv", "csv", map_curitiba, csv_sep=",", require_cnpj=False),
@@ -986,10 +1154,18 @@ CAPITAL_CONFIGS = [
     CapitalConfig("portovelho", "RO", "Porto Velho", "Porto Velho", "portovelho_convenios_api_filtrado.json", "json", map_porto_velho),
     CapitalConfig("boavista", "RR", "Boa Vista", "Boa Vista", "boavista_despesas_gerais_*.json", "json", map_boavista),
     CapitalConfig("aracaju", "SE", "Aracaju", "Aracaju", "aracaju_repasses_ongs.csv", "csv", map_aracaju, csv_sep=",", require_cnpj=False),
-    CapitalConfig("florianopolis", "SC", "Florianopolis", "Florianopolis", "florianopolis_convenios_enriquecido.json", "json", map_florianopolis),
+    CapitalConfig(
+        "florianopolis",
+        "SC",
+        "Florianopolis",
+        "Florianopolis",
+        "florianopolis_despesas_20*.json",
+        "florianopolis_despesas_convenios",
+        map_florianopolis,
+    ),
     CapitalConfig("saopaulo", "SP", "Sao Paulo", "Sao Paulo", "sao_paulo_parcerias_educacao_infantil_*.csv", "csv", map_sao_paulo, csv_sep=";", csv_encoding="latin1"),
-    CapitalConfig("teresina", "PI", "Teresina", "Teresina", "Relatório consolidado *.xls*", "excel", map_teresina, excel_skiprows=8, latest_only=True),
-    CapitalConfig("palmas", "TO", "Palmas", "Palmas", "palmas_convenios_osc.json", "json", map_palmas),
+    CapitalConfig("teresina", "PI", "Teresina", "Teresina", "despesas_teresina_20*.csv", "csv", map_teresina, csv_sep=","),
+    CapitalConfig("palmas", "TO", "Palmas", "Palmas", "palmas_despesas_20*.json", "json", map_palmas),
 ]
 
 
@@ -1071,6 +1247,54 @@ def iter_csv_batches(config: CapitalConfig, paths: list[Path], batch_size: int) 
             print(f"Arquivo CSV ignorado por erro de leitura: {path.name} ({type(exc).__name__})")
 
 
+def iter_fortaleza_despesas_batches(paths: list[Path], batch_size: int) -> Iterator[pd.DataFrame]:
+    batch: list[dict[str, str]] = []
+    for path in paths:
+        try:
+            with path.open("r", encoding="cp1252", errors="replace", newline="") as handle:
+                reader = csv.reader(handle, delimiter=";", quotechar='"')
+                rows = [row for row in reader if row and any(cell.strip() for cell in row)]
+        except Exception as exc:
+            print(f"Arquivo CSV ignorado por erro de leitura: {path.name} ({type(exc).__name__})")
+            continue
+
+        if len(rows) < 3:
+            continue
+
+        title = rows[0][0].strip()
+        if "Por Favorecido" not in title:
+            continue
+
+        year_match = re.search(r"em\s+((?:19|20)\d{2})", title, flags=re.IGNORECASE)
+        if not year_match:
+            continue
+
+        year = int(year_match.group(1))
+        if year < 2014:
+            continue
+
+        for row in rows[2:]:
+            if len(row) < 4:
+                continue
+
+            batch.append(
+                {
+                    "AnoTitulo": str(year),
+                    "CPF/CNPJ": row[0].strip(),
+                    "FAVORECIDO": row[1].strip(),
+                    "TOTAL NO PERIODO": row[2].strip(),
+                    "DocumentoDigitos": row[3].strip(),
+                    "ArquivoOrigem": path.name,
+                }
+            )
+            if len(batch) >= batch_size:
+                yield pd.DataFrame(batch)
+                batch.clear()
+
+    if batch:
+        yield pd.DataFrame(batch)
+
+
 def iter_html_batches(config: CapitalConfig, paths: list[Path]) -> Iterator[pd.DataFrame]:
     for path in paths:
         try:
@@ -1106,8 +1330,31 @@ def iter_source_batches(config: CapitalConfig, paths: list[Path], batch_size: in
     if config.format == "json":
         yield from iter_json_batches(paths, batch_size)
         return
+    if config.format == "florianopolis_despesas_convenios":
+        yield from iter_json_batches(paths, batch_size)
+        if paths:
+            convenio_paths = sorted(paths[0].parent.glob("convenios_detalhe_20*.csv"))
+            yield from iter_csv_batches(
+                CapitalConfig(
+                    config.key,
+                    config.uf,
+                    config.municipio,
+                    config.folder,
+                    "convenios_detalhe_20*.csv",
+                    "csv",
+                    config.mapper,
+                    csv_sep=",",
+                    require_cnpj=config.require_cnpj,
+                ),
+                convenio_paths,
+                batch_size,
+            )
+        return
     if config.format == "csv":
         yield from iter_csv_batches(config, paths, batch_size)
+        return
+    if config.format == "fortaleza_despesas_csv":
+        yield from iter_fortaleza_despesas_batches(paths, batch_size)
         return
     if config.format == "html":
         yield from iter_html_batches(config, paths)

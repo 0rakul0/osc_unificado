@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import re
 import sys
@@ -24,7 +25,8 @@ OSC_NAME_PATTERN = re.compile(
     re.IGNORECASE,
 )
 PUBLIC_PATTERN = re.compile(
-    r"municipio|prefeitura|estado de|governo do estado|secretaria|camara|tribunal|universidade|instituto federal|campus",
+    r"municipio|prefeitura|estado de|governo do estado|secretaria|camara|tribunal|universidade|"
+    r"instituto federal|campus|inmetro|fundacao cultural de ji|\\bltda\\b|\\bs/a\\b|\\bsa\\b",
     re.IGNORECASE,
 )
 
@@ -50,8 +52,22 @@ def default_input_path(scope: str) -> Path:
     return uf_raw_dir("RO", scope) / "ro_transferencias_realizadas.csv"
 
 
+def default_input_dir(scope: str) -> Path:
+    return uf_raw_dir("RO", scope)
+
+
 def read_source(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, dtype=str, encoding="utf-8-sig")
+
+
+def read_api_source(input_dir: Path) -> pd.DataFrame:
+    path = input_dir / "ro_convenios_api.json"
+    if not path.exists():
+        return pd.DataFrame()
+    rows = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(rows, list):
+        raise ValueError(f"JSON inesperado em {path}")
+    return pd.DataFrame(rows)
 
 
 def clean_text(series: pd.Series | None) -> pd.Series:
@@ -98,6 +114,24 @@ def build_focus_mask(source_df: pd.DataFrame) -> pd.Series:
     return beneficiario.str.contains(OSC_NAME_PATTERN, na=False) & ~beneficiario.str.contains(PUBLIC_PATTERN, na=False)
 
 
+def build_api_focus_mask(source_df: pd.DataFrame) -> pd.Series:
+    empresa = clean_text(source_df.get("empresa")).fillna("")
+    documento = clean_text(source_df.get("cnpj_Cpf")).fillna("").str.replace(r"\D", "", regex=True)
+    return (
+        empresa.str.contains(OSC_NAME_PATTERN, na=False)
+        & ~empresa.str.contains(PUBLIC_PATTERN, na=False)
+        & documento.str.len().eq(14)
+    )
+
+
+def extract_year_from_date(series: pd.Series | None) -> pd.Series:
+    cleaned = clean_text(series)
+    if cleaned.empty:
+        return cleaned
+    parsed = pd.to_datetime(cleaned, errors="coerce")
+    return pd.Series(parsed.dt.year, index=cleaned.index, dtype="Int64").astype("string")
+
+
 def build_ro_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
     filtered = source_df.loc[build_focus_mask(source_df)].copy()
     data_repasse = extract_date(filtered.get("valor_repassado_data"))
@@ -127,15 +161,55 @@ def build_ro_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
     return mapped[STANDARD_COLUMNS]
 
 
+def build_ro_api_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
+    if source_df.empty:
+        return pd.DataFrame(columns=STANDARD_COLUMNS)
+    filtered = source_df.loc[build_api_focus_mask(source_df)].copy()
+    ano = extract_year_from_date(filtered.get("dataAssinatura")).combine_first(
+        extract_year_from_date(filtered.get("dataElaboracao"))
+    )
+    termino = clean_text(filtered.get("dataVigencia"))
+    _, mes = extract_year_month(termino)
+
+    mapped = pd.DataFrame(
+        {
+            "uf": "RO",
+            "origem": ORIGEM_ORCAMENTO_GERAL,
+            "ano": ano,
+            "valor_total": filtered.get("valorInicial"),
+            "cnpj": filtered.get("cnpj_Cpf"),
+            "nome_osc": filtered.get("empresa"),
+            "mes": mes,
+            "cod_municipio": pd.NA,
+            "municipio": pd.NA,
+            "objeto": filtered.get("objeto"),
+            "modalidade": first_non_empty(filtered.get("numeroDocumento"), filtered.get("numeroProcesso")),
+            "data_inicio": filtered.get("dataAssinatura"),
+            "data_fim": termino,
+        }
+    )
+
+    for column in STANDARD_COLUMNS:
+        if column not in mapped.columns:
+            mapped[column] = pd.NA
+    return mapped[STANDARD_COLUMNS]
+
+
 def main() -> None:
     args = parse_args()
+    input_dir = default_input_dir(args.scope)
     input_path = Path(args.input) if args.input else default_input_path(args.scope)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     source_df = read_source(input_path)
-    mapped = build_ro_budget_frame(source_df)
+    api_df = read_api_source(input_dir)
+    frames = [build_ro_budget_frame(source_df)]
+    if not api_df.empty:
+        frames.append(build_ro_api_budget_frame(api_df))
+    mapped = pd.concat(frames, ignore_index=True)
     normalized = normalize_preview(mapped, "RO", require_cnpj=False)
+    normalized = normalized.drop_duplicates(subset=["ano", "cnpj", "nome_osc", "valor_total", "objeto"])
 
     output_path = output_dir / default_output_name("RO", args.scope)
     pq.write_table(build_parquet_table(normalized), output_path, compression="snappy")
@@ -143,6 +217,7 @@ def main() -> None:
     print(f"Entrada: {input_path}")
     print(f"Saida: {output_path}")
     print(f"Linhas origem: {len(source_df)}")
+    print(f"Linhas API: {len(api_df)}")
     print(f"Linhas parquet: {len(normalized)}")
     print(f"Origem aplicada: {ORIGEM_ORCAMENTO_GERAL}")
 

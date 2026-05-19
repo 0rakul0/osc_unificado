@@ -113,11 +113,12 @@ _Fonte local deste bloco: `processada/PI.parquet`; campos e agregacoes usados: c
 
 ### Capital (Teresina)
 
-- Parquet da capital consolidado: `E:\dados\capitais_processada\PI_TERESINA.parquet` (47 linhas).
+- Parquet da capital consolidado: `E:\dados\capitais_processada\PI_TERESINA.parquet` (501.849 linhas).
 - Pasta bruta usada no pipeline da capital: `E:\dados\bases_convenios_capitais\Teresina`.
-- Exemplos de arquivos brutos da capital: `Relatório consolidado 04.2019.xls`, `Relatório consolidado 05.2019.xls`, `Relatório consolidado 06.2019.xls`, `Relatório consolidado 08.2019.xlsx`.
-- Scripts associados a capital: `utils/orcamento_geral/processar_orcamento_geral_capitais.py`, `utils/orcamento_geral/baixar_convenios_capital_teresina.py`.
-- Fontes oficiais registradas para a capital: [transparencia.teresina.pi.gov.br/bp/parcerias](https://transparencia.teresina.pi.gov.br/bp/parcerias).
+- Arquivos brutos da capital: `despesas_teresina_2015.csv` a `despesas_teresina_2026.csv`, alem das planilhas legadas `Relatório consolidado *.xls*`.
+- Scripts associados a capital: `utils/capitais/processar_capitais.py`, `utils/capitais/parsers/teresina.py`.
+- Fontes oficiais registradas para a capital: [despesas da transparência municipal](https://transparencia.teresina.pi.gov.br/despesas), [parcerias](https://transparencia.teresina.pi.gov.br/bp/parcerias).
+- Recorte documentado em 2026-05-16: despesas por empenho/favorecido de 2015 a 2026, processadas a partir dos CSVs `despesas_teresina_20*.csv`. Contagens processadas: 48.849 linhas em 2015, 50.164 em 2016, 46.701 em 2017, 49.582 em 2018, 51.790 em 2019, 43.819 em 2020, 40.343 em 2021, 45.806 em 2022, 42.405 em 2023, 37.979 em 2024, 33.392 em 2025 e 11.019 em 2026.
 
 ## Conclusao
 

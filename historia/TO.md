@@ -106,11 +106,12 @@ _Fonte local deste bloco: `processada/TO.parquet`; campos e agregacoes usados: c
 
 ### Capital (Palmas)
 
-- Parquet da capital consolidado: `E:\dados\capitais_processada\TO_PALMAS.parquet` (4 linhas).
+- Parquet da capital consolidado: `E:\dados\capitais_processada\TO_PALMAS.parquet` (133.848 linhas).
 - Pasta bruta usada no pipeline da capital: `E:\dados\bases_convenios_capitais\Palmas`.
-- Exemplos de arquivos brutos da capital: `palmas_contratos_brutos.json`, `palmas_convenios_osc.json`, `palmas_convenios_resumo.json`.
-- Scripts associados a capital: `utils/orcamento_geral/processar_orcamento_geral_capitais.py`, `utils/orcamento_geral/baixar_convenios_capital_palmas.py`.
-- Fontes oficiais registradas para a capital: [prodata.palmas.to.gov.br/sig/app.html#/transparencia/contratos/](https://prodata.palmas.to.gov.br/sig/app.html#/transparencia/contratos/), [prodata.palmas.to.gov.br/sig/rest/transparenciaContratosController/getContratos](https://prodata.palmas.to.gov.br/sig/rest/transparenciaContratosController/getContratos).
+- Arquivos brutos da capital: `palmas_despesas_2023.json`, `palmas_despesas_2024.json`, `palmas_despesas_2025.json`, `palmas_despesas_manifest.json`.
+- Scripts associados a capital: `utils/capitais/downloads/baixar_despesas_capital_palmas.py`, `utils/capitais/processar_capitais.py`, `utils/capitais/parsers/palmas.py`.
+- Fontes oficiais registradas para a capital: [portal Prodata de despesa simplificada](https://prodata.palmas.to.gov.br/sig/app.html#/transparencia/transparencia-despesa-simplificado/), [endpoint de despesas por interessado](https://prodata.palmas.to.gov.br/sig/rest/despesaSimplificadoController/pesquisarPorInteressado).
+- Recorte documentado em 2026-05-13: despesas pagas por fornecedor (`fase_despesa=pago`, `agrupamento=fornecedor`) para 2023-2025. Contagens processadas: 47.224 linhas em 2023, 45.780 em 2024 e 40.844 em 2025.
 
 ## Conclusao
 

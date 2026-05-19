@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import re
 import sys
+import unicodedata
 
 import pandas as pd
 import pyarrow.parquet as pq
@@ -62,11 +63,23 @@ OBJECT_OSC_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
         "SOCIEDADE RECREATIVA TENTAMEN",
     ),
 )
+GENERIC_OBJECT_OSC_PATTERN = re.compile(
+    r"\b(ASSOCIACAO|INSTITUTO|SOCIEDADE|COOPERATIVA|FEDERACAO|CONSELHO NACIONAL)\s+"
+    r"[A-Z0-9 /\-.,()]{3,120}",
+    re.IGNORECASE,
+)
+GENERIC_FALSE_POSITIVE_PATTERN = re.compile(
+    r"SOCIEDADE CIVIL|INSTITUTO SOCIOEDUCATIVO|INSTITUTO DE ADMINISTRACAO|"
+    r"INSTITUTO DE PROTECAO|INSTITUTO ESTADUAL|INSTITUTO NACIONAL|FEDERACAO - PROGRAMA|"
+    r"INSTITUTO MEDICO LEGAL|INSTITUTO PROCON|SOCIEDADE DA|^SOCIEDADE$|"
+    r"FEDERACAO, POR MEIO|ASSOCIACOES\)|ASSOCIACOES E",
+    re.IGNORECASE,
+)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Processa os convenios do Acre com recorte conservador de OSC identificado no objeto da parceria."
+        description="Processa as despesas gerais do Acre baixadas do portal de transparencia estadual."
     )
     add_scope_argument(parser)
     parser.add_argument(
@@ -85,11 +98,27 @@ def default_input_path(scope: str) -> Path:
     return uf_raw_dir("AC", scope) / "ac_convenios_detalhamento.json"
 
 
+def default_input_dir(scope: str) -> Path:
+    return uf_raw_dir("AC", scope)
+
+
 def read_source(path: Path) -> pd.DataFrame:
     rows = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(rows, list):
         raise ValueError(f"JSON inesperado em {path}")
     return pd.DataFrame(rows)
+
+
+def read_general_expense_sources(input_dir: Path) -> pd.DataFrame:
+    paths = sorted(input_dir.glob("ac_despesas_gerais_*.json"))
+    frames: list[pd.DataFrame] = []
+    for path in paths:
+        source = read_source(path)
+        source["_arquivo_origem"] = path.name
+        frames.append(source)
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True, sort=False)
 
 
 def clean_text(series: pd.Series | None) -> pd.Series:
@@ -142,16 +171,37 @@ def normalize_ascii_upper(text: str) -> str:
     )
 
 
+def robust_ascii_upper(text: object) -> str:
+    normalized = unicodedata.normalize("NFKD", str(text or ""))
+    ascii_text = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    return " ".join(ascii_text.upper().split())
+
+
+def clean_extracted_name(text: str) -> str:
+    text = re.split(
+        r"\s+(PARA|COM|VISANDO|ATRAVES|AQUISICAO|EXECUCAO|PROJETO|CONVENIO|CONTRATACAO|NO ESTADO|DO ESTADO,)",
+        text,
+        maxsplit=1,
+    )[0]
+    return text.strip(" -.,;:()")
+
+
 def extract_object_osc_name(text: object) -> object:
     if pd.isna(text):
         return pd.NA
-    normalized = str(text).strip()
+    normalized = robust_ascii_upper(text)
     if not normalized:
         return pd.NA
 
     for pattern, label in OBJECT_OSC_PATTERNS:
         if pattern.search(normalized):
             return label
+
+    match = GENERIC_OBJECT_OSC_PATTERN.search(normalized)
+    if match:
+        candidate = clean_extracted_name(match.group(0))
+        if candidate and not GENERIC_FALSE_POSITIVE_PATTERN.search(candidate):
+            return candidate
 
     return pd.NA
 
@@ -211,21 +261,70 @@ def build_ac_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
     return mapped[STANDARD_COLUMNS]
 
 
+def build_ac_general_expense_frame(source_df: pd.DataFrame) -> pd.DataFrame:
+    ano_data, mes = extract_year_month(source_df.get("dataempenho"))
+    mapped = pd.DataFrame(
+        {
+            "uf": "AC",
+            "origem": ORIGEM_ORCAMENTO_GERAL,
+            "ano": first_non_empty(source_df.get("anoempenho"), ano_data),
+            "valor_total": first_non_empty(source_df.get("totalempenho"), source_df.get("valorempenhado")),
+            "cnpj": source_df.get("cpfcnpjcredor"),
+            "nome_osc": source_df.get("razaosocial"),
+            "mes": mes,
+            "cod_municipio": pd.NA,
+            "municipio": pd.NA,
+            "objeto": source_df.get("historico"),
+            "modalidade": first_non_empty(
+                source_df.get("elemento_despesa_descricao"),
+                source_df.get("despesaorcamentaria"),
+                source_df.get("natureza_despesa_descricao"),
+            ),
+            "data_inicio": source_df.get("dataempenho"),
+            "data_fim": pd.NA,
+        }
+    )
+
+    for column in STANDARD_COLUMNS:
+        if column not in mapped.columns:
+            mapped[column] = pd.NA
+    return mapped[STANDARD_COLUMNS]
+
+
+def choose_source(args: argparse.Namespace) -> tuple[pd.DataFrame, str, str]:
+    if args.input:
+        input_path = Path(args.input)
+        source_df = read_source(input_path)
+        source_kind = "despesas_gerais" if "anoempenho" in source_df.columns else "convenios_legado"
+        return source_df, str(input_path), source_kind
+
+    input_dir = default_input_dir(args.scope)
+    general_df = read_general_expense_sources(input_dir)
+    if not general_df.empty:
+        return general_df, str(input_dir / "ac_despesas_gerais_*.json"), "despesas_gerais"
+
+    input_path = default_input_path(args.scope)
+    return read_source(input_path), str(input_path), "convenios_legado"
+
+
 def main() -> None:
     args = parse_args()
-    input_path = Path(args.input) if args.input else default_input_path(args.scope)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    source_df = read_source(input_path)
-    mapped = build_ac_budget_frame(source_df)
+    source_df, input_label, source_kind = choose_source(args)
+    if source_kind == "despesas_gerais":
+        mapped = build_ac_general_expense_frame(source_df)
+    else:
+        mapped = build_ac_budget_frame(source_df)
     normalized = normalize_preview(mapped, "AC", require_cnpj=False)
 
     output_path = output_dir / default_output_name("AC", args.scope)
     pq.write_table(build_parquet_table(normalized), output_path, compression="snappy")
 
-    print(f"Entrada: {input_path}")
+    print(f"Entrada: {input_label}")
     print(f"Saida: {output_path}")
+    print(f"Tipo entrada: {source_kind}")
     print(f"Linhas origem: {len(source_df)}")
     print(f"Linhas parquet: {len(normalized)}")
     print(f"Origem aplicada: {ORIGEM_ORCAMENTO_GERAL}")

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
+import re
 import sys
 
 import pandas as pd
@@ -41,6 +43,10 @@ def default_input_path(scope: str) -> Path:
     return uf_raw_dir("MA", scope) / "DESPESA_2026_01.csv"
 
 
+def default_input_dir(scope: str) -> Path:
+    return uf_raw_dir("MA", scope)
+
+
 def read_source(path: Path) -> pd.DataFrame:
     return pd.read_csv(
         path,
@@ -50,6 +56,17 @@ def read_source(path: Path) -> pd.DataFrame:
         low_memory=False,
         on_bad_lines="skip",
     )
+
+
+def read_sources(input_dir: Path, explicit_input: Path | None = None) -> pd.DataFrame:
+    frames: list[pd.DataFrame] = []
+    csv_paths = [explicit_input] if explicit_input else sorted(input_dir.glob("DESPESA_*.csv"))
+    for path in csv_paths:
+        if path and path.exists():
+            frames.append(read_source(path))
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True)
 
 
 def clean_text(series: pd.Series | None) -> pd.Series:
@@ -74,8 +91,19 @@ def first_non_empty(*series: pd.Series | None) -> pd.Series:
     return result
 
 
+def money_to_number(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    text = re.sub(r"[^\d,.-]", "", text)
+    if "," in text:
+        text = text.replace(".", "").replace(",", ".")
+    return text
+
+
 def build_focus_mask(source_df: pd.DataFrame) -> pd.Series:
     nome = clean_text(source_df.get("credor_nome")).fillna("")
+    codigo = clean_text(source_df.get("codigo_credor")).fillna("").str.replace(r"\D", "", regex=True)
     natureza = clean_text(source_df.get("nome_natureza")).fillna("")
     descricao = clean_text(source_df.get("descricao")).fillna("")
 
@@ -97,7 +125,27 @@ def build_focus_mask(source_df: pd.DataFrame) -> pd.Series:
         regex=True,
         na=False,
     )
-    return descricao_convenio | (nome_osc & natureza_terceiro_setor)
+    return nome_osc & (natureza_terceiro_setor | descricao_convenio) & codigo.str.len().eq(14)
+
+
+def build_legacy_focus_mask(source_df: pd.DataFrame) -> pd.Series:
+    nome = clean_text(source_df.get("credor_nome")).fillna("")
+    codigo = clean_text(source_df.get("codigo_credor")).fillna("").str.replace(r"\D", "", regex=True)
+    nome_osc = nome.str.contains(
+        r"associ|institu|fundac|apae|sociedade|benefic|filantrop|santa casa|comunit|cultural",
+        case=False,
+        regex=True,
+        na=False,
+    )
+    publico = nome.str.contains(
+        r"outros poderes|municipio|prefeitura|secretaria|governo|tribunal|assembleia|"
+        r"fundo estadual|fundo municipal|policia|bombeiro|procuradoria|defensoria|"
+        r"universidade estadual|departamento estadual|autarquia|servidor|previdencia",
+        case=False,
+        regex=True,
+        na=False,
+    )
+    return nome_osc & ~publico & codigo.str.len().eq(14)
 
 
 def build_ma_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
@@ -127,22 +175,67 @@ def build_ma_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
     return mapped[STANDARD_COLUMNS]
 
 
+def read_legacy_sources(input_dir: Path) -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+    for path in sorted(input_dir.glob("ma_fornecedores_legacy_20[0-9][0-9].json")):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(payload, list):
+            rows.extend(row for row in payload if isinstance(row, dict))
+    return pd.DataFrame(rows)
+
+
+def build_ma_legacy_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
+    if source_df.empty:
+        return pd.DataFrame(columns=STANDARD_COLUMNS)
+    filtered = source_df.loc[build_legacy_focus_mask(source_df)].copy()
+    mapped = pd.DataFrame(
+        {
+            "uf": "MA",
+            "origem": ORIGEM_ORCAMENTO_GERAL,
+            "ano": filtered.get("ano"),
+            "valor_total": filtered.get("valor_pago").map(money_to_number),
+            "cnpj": filtered.get("codigo_credor"),
+            "nome_osc": filtered.get("credor_nome"),
+            "mes": pd.NA,
+            "cod_municipio": pd.NA,
+            "municipio": pd.NA,
+            "objeto": filtered.get("detalhe_url"),
+            "modalidade": "despesa por fornecedor - portal legado",
+            "data_inicio": pd.NA,
+            "data_fim": pd.NA,
+        }
+    )
+    for column in STANDARD_COLUMNS:
+        if column not in mapped.columns:
+            mapped[column] = pd.NA
+    return mapped[STANDARD_COLUMNS]
+
+
 def main() -> None:
     args = parse_args()
-    input_path = Path(args.input) if args.input else default_input_path(args.scope)
+    input_dir = default_input_dir(args.scope)
+    input_path = Path(args.input) if args.input else None
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    source_df = read_source(input_path)
-    mapped = build_ma_budget_frame(source_df)
+    source_df = read_sources(input_dir, input_path)
+    frames = []
+    if not source_df.empty:
+        frames.append(build_ma_budget_frame(source_df))
+    legacy_df = read_legacy_sources(input_dir)
+    if not legacy_df.empty:
+        frames.append(build_ma_legacy_budget_frame(legacy_df))
+    mapped = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=STANDARD_COLUMNS)
     normalized = normalize_preview(mapped, "MA", require_cnpj=True)
+    normalized = normalized.drop_duplicates(subset=["ano", "cnpj", "nome_osc", "valor_total", "objeto"])
 
     output_path = output_dir / default_output_name("MA", args.scope)
     pq.write_table(build_parquet_table(normalized), output_path, compression="snappy")
 
-    print(f"Entrada: {input_path}")
+    print(f"Entrada: {input_path or input_dir}")
     print(f"Saida: {output_path}")
     print(f"Linhas origem: {len(source_df)}")
+    print(f"Linhas legado: {len(legacy_df)}")
     print(f"Linhas parquet: {len(normalized)}")
     print(f"Origem aplicada: {ORIGEM_ORCAMENTO_GERAL}")
 

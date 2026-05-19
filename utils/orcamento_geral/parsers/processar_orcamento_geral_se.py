@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 from pathlib import Path
 import sys
@@ -20,25 +21,9 @@ from utils.orcamento_geral.paths import add_scope_argument, default_output_name,
 
 
 ORIGEM_ORCAMENTO_GERAL = "orcamento_geral"
-OSC_NAME_PATTERN = re.compile(
-    r"associ|instit|fundac|apae|pestalozzi|benefic|filantrop|matern|"
-    r"santa casa|paroquia|igreja|oratorio|lar |casa |centro |hospital do tricentenario|"
-    r"irma|irmandade|provincia nossa senhora|comunidade",
-    flags=re.IGNORECASE,
-)
-PUBLIC_OR_FOR_PROFIT_PATTERN = re.compile(
-    r"municipio|prefeitura|secretaria|governo|tribunal|camara|assembleia|"
-    r"universidade federal|universidade estadual|servico autonomo|fundo |"
-    r"seguro social|servidores|previdencia|autarquia|empresa municipal|"
-    r"\bltda\b|\bme\b|\bepp\b|\bsa\b|comercio|servicos|construtora|engenharia|"
-    r"veiculos|transportes|empreendimentos|telecom|energia|combustiveis",
-    flags=re.IGNORECASE,
-)
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Processa os empenhos do SE com foco em despesas do orcamento geral ligadas a OSC."
+        description="Processa todos os empenhos de SE como despesas gerais do orcamento estadual."
     )
     add_scope_argument(parser)
     parser.add_argument(
@@ -87,14 +72,6 @@ def first_non_empty(*values: object) -> object:
     return pd.NA
 
 
-def should_keep_record(nome_osc: str) -> bool:
-    if not nome_osc:
-        return False
-    if PUBLIC_OR_FOR_PROFIT_PATTERN.search(nome_osc):
-        return False
-    return bool(OSC_NAME_PATTERN.search(nome_osc))
-
-
 def iter_source_rows(path: Path) -> list[dict[str, object]]:
     workbook = load_workbook(path, read_only=True, data_only=True)
     worksheet = workbook.active
@@ -105,12 +82,7 @@ def iter_source_rows(path: Path) -> list[dict[str, object]]:
 
     for values in worksheet.iter_rows(min_row=2, values_only=True):
         nome_osc = clean_text(values[index_by_name["nmRazaoSocialPessoa"]]) if "nmRazaoSocialPessoa" in index_by_name else ""
-        if not should_keep_record(nome_osc):
-            continue
-
         cnpj = normalize_document(values[index_by_name["nuDocumento"]]) if "nuDocumento" in index_by_name else ""
-        if len(cnpj) != 14:
-            continue
 
         row = {
             "uf": "SE",
@@ -145,10 +117,47 @@ def iter_source_rows(path: Path) -> list[dict[str, object]]:
     return rows
 
 
+def iter_api_rows(path: Path) -> list[dict[str, object]]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        raise ValueError(f"Formato inesperado em {path}: {type(payload).__name__}")
+
+    rows: list[dict[str, object]] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        nome_osc = clean_text(item.get("nomePessoa"))
+        cnpj = normalize_document(item.get("codigoFavorecido"))
+
+        data_empenho = clean_text(item.get("dataEmpenho"))[:10] or pd.NA
+        data_parseada = pd.to_datetime(data_empenho, dayfirst=True, errors="coerce") if data_empenho is not pd.NA else pd.NaT
+        ano = data_parseada.year if not pd.isna(data_parseada) else first_non_empty(item.get("ano"))
+        rows.append(
+            {
+                "uf": "SE",
+                "origem": ORIGEM_ORCAMENTO_GERAL,
+                "ano": ano,
+                "valor_total": first_non_empty(item.get("valorExecutado"), item.get("valorOriginal")),
+                "cnpj": cnpj,
+                "nome_osc": nome_osc,
+                "mes": data_parseada.month if not pd.isna(data_parseada) else pd.NA,
+                "cod_municipio": pd.NA,
+                "municipio": pd.NA,
+                "objeto": first_non_empty(item.get("descricaoSolicitacao"), item.get("elementoDespesa")),
+                "modalidade": first_non_empty(item.get("modalidade"), item.get("elementoDespesa")),
+                "data_inicio": data_empenho,
+                "data_fim": pd.NA,
+            }
+        )
+    return rows
+
+
 def build_se_budget_frame(input_dir: Path) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     for path in sorted(input_dir.glob("empenhos_*.xlsx")):
         rows.extend(iter_source_rows(path))
+    for path in sorted(input_dir.glob("se_empenhos_api_*.json")):
+        rows.extend(iter_api_rows(path))
     frame = pd.DataFrame(rows)
     if frame.empty:
         return pd.DataFrame(columns=STANDARD_COLUMNS).astype("string")
@@ -165,7 +174,7 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     mapped = build_se_budget_frame(input_dir)
-    normalized = normalize_preview(mapped, "SE", require_cnpj=True)
+    normalized = normalize_preview(mapped, "SE", require_cnpj=False)
 
     output_path = output_dir / default_output_name("SE", args.scope)
     pq.write_table(build_parquet_table(normalized), output_path, compression="snappy")

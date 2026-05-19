@@ -4,6 +4,8 @@ import argparse
 from pathlib import Path
 import re
 import sys
+import unicodedata
+import zipfile
 
 import pandas as pd
 import pyarrow.parquet as pq
@@ -38,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     add_scope_argument(parser)
     parser.add_argument(
         "--input",
-        help="CSV da despesa do RJ. Se omitido, usa o caminho padrao do escopo escolhido.",
+        help="CSV ou ZIP da despesa do RJ. Se omitido, usa o caminho padrao do escopo escolhido.",
     )
     parser.add_argument(
         "--output-dir",
@@ -49,7 +51,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def default_input_path(scope: str) -> Path:
-    return uf_raw_dir("RJ", scope) / "despesa2026.csv"
+    zip_path = uf_raw_dir("RJ", scope) / "despesa.zip"
+    return zip_path if zip_path.exists() else uf_raw_dir("RJ", scope) / "despesa2026.csv"
 
 
 def clean_text(series: pd.Series | None) -> pd.Series:
@@ -66,6 +69,35 @@ def read_source(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, dtype=str, sep=";", encoding="latin1", skiprows=5, engine="python")
 
 
+def infer_year(path: Path) -> str:
+    match = re.search(r"(19|20)\d{2}", path.stem)
+    return match.group(0) if match else "2026"
+
+
+def iter_source_frames(path: Path) -> list[tuple[pd.DataFrame, str]]:
+    if path.suffix.lower() != ".zip":
+        return [(read_source(path), infer_year(path))]
+
+    frames: list[tuple[pd.DataFrame, str]] = []
+    with zipfile.ZipFile(path) as archive:
+        for name in sorted(archive.namelist()):
+            if not name.lower().endswith(".csv"):
+                continue
+            year = infer_year(Path(name))
+            with archive.open(name) as handle:
+                for chunk in pd.read_csv(
+                    handle,
+                    dtype=str,
+                    sep=";",
+                    encoding="latin1",
+                    skiprows=5,
+                    chunksize=100_000,
+                    low_memory=False,
+                ):
+                    frames.append((chunk, year))
+    return frames
+
+
 def first_non_empty(*series: pd.Series | None) -> pd.Series:
     result: pd.Series | None = None
     for current in series:
@@ -78,10 +110,40 @@ def first_non_empty(*series: pd.Series | None) -> pd.Series:
     return result
 
 
+def normalize_column_name(value: str) -> str:
+    text = "".join(ch for ch in unicodedata.normalize("NFKD", value) if not unicodedata.combining(ch))
+    return re.sub(r"[^a-z0-9]+", "", text.lower())
+
+
+def get_column(source_df: pd.DataFrame, *names: str) -> pd.Series | None:
+    normalized = {normalize_column_name(column): column for column in source_df.columns}
+    for name in names:
+        if name in source_df.columns:
+            return source_df[name]
+        column = normalized.get(normalize_column_name(name))
+        if column is not None:
+            return source_df[column]
+    return None
+
+
+def first_non_zero(*series: pd.Series | None) -> pd.Series:
+    result: pd.Series | None = None
+    for current in series:
+        if current is None:
+            continue
+        cleaned = clean_text(current)
+        numeric = pd.to_numeric(cleaned.str.replace(".", "", regex=False).str.replace(",", ".", regex=False), errors="coerce")
+        cleaned = cleaned.where(numeric.ne(0), pd.NA)
+        result = cleaned if result is None else result.combine_first(cleaned)
+    if result is None:
+        return pd.Series(dtype="string")
+    return result
+
+
 def build_focus_mask(source_df: pd.DataFrame) -> pd.Series:
-    nome_credor = clean_text(source_df.get("Nome Credor")).fillna("")
-    nome_elemento = clean_text(source_df.get("Nome Elemento")).fillna("")
-    historico = clean_text(source_df.get("Histórico")).fillna("")
+    nome_credor = clean_text(get_column(source_df, "Nome Credor")).fillna("")
+    nome_elemento = clean_text(get_column(source_df, "Nome Elemento")).fillna("")
+    historico = clean_text(get_column(source_df, "Historico", "Histórico", "HistÃ³rico")).fillna("")
 
     nome_osc = nome_credor.str.contains(OSC_PATTERN, na=False)
     publico = nome_credor.str.contains(PUBLIC_PATTERN, na=False)
@@ -95,11 +157,6 @@ def build_focus_mask(source_df: pd.DataFrame) -> pd.Series:
     return ((subvencao & nome_osc) | (termo_osc & nome_osc)) & ~publico
 
 
-def infer_year(path: Path) -> str:
-    match = re.search(r"(19|20)\d{2}", path.stem)
-    return match.group(0) if match else "2026"
-
-
 def build_rj_budget_frame(source_df: pd.DataFrame, ano: str) -> pd.DataFrame:
     filtered = source_df.loc[build_focus_mask(source_df)].copy()
 
@@ -108,14 +165,21 @@ def build_rj_budget_frame(source_df: pd.DataFrame, ano: str) -> pd.DataFrame:
             "uf": "RJ",
             "origem": ORIGEM_ORCAMENTO_GERAL,
             "ano": ano,
-            "valor_total": filtered.get("Valor Pago"),
-            "cnpj": filtered.get("Credor"),
-            "nome_osc": filtered.get("Nome Credor"),
+            "valor_total": first_non_zero(
+                get_column(filtered, "Valor Pago"),
+                get_column(filtered, "Valor Liquidado"),
+                get_column(filtered, "Valor Empenhado"),
+            ),
+            "cnpj": get_column(filtered, "Credor"),
+            "nome_osc": get_column(filtered, "Nome Credor"),
             "mes": pd.NA,
             "cod_municipio": pd.NA,
             "municipio": pd.NA,
-            "objeto": filtered.get("Histórico"),
-            "modalidade": first_non_empty(filtered.get("Nome Elemento"), filtered.get("Nome Modalidade de Aplicação")),
+            "objeto": get_column(filtered, "Historico", "Histórico", "HistÃ³rico"),
+            "modalidade": first_non_empty(
+                get_column(filtered, "Nome Elemento"),
+                get_column(filtered, "Nome Modalidade de Aplicacao", "Nome Modalidade de Aplicação", "Nome Modalidade de AplicaÃ§Ã£o"),
+            ),
             "data_inicio": pd.NA,
             "data_fim": pd.NA,
         }
@@ -133,16 +197,17 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    source_df = read_source(input_path)
-    mapped = build_rj_budget_frame(source_df, infer_year(input_path))
+    mapped_frames = [build_rj_budget_frame(frame, year) for frame, year in iter_source_frames(input_path)]
+    mapped = pd.concat(mapped_frames, ignore_index=True) if mapped_frames else pd.DataFrame(columns=STANDARD_COLUMNS)
     normalized = normalize_preview(mapped, "RJ", require_cnpj=True)
+    normalized = normalized.drop_duplicates(subset=["ano", "cnpj", "nome_osc", "valor_total", "objeto"])
 
     output_path = output_dir / default_output_name("RJ", args.scope)
     pq.write_table(build_parquet_table(normalized), output_path, compression="snappy")
 
     print(f"Entrada: {input_path}")
     print(f"Saida: {output_path}")
-    print(f"Linhas origem: {len(source_df)}")
+    print(f"Partes origem: {len(mapped_frames)}")
     print(f"Linhas parquet: {len(normalized)}")
     print(f"Origem aplicada: {ORIGEM_ORCAMENTO_GERAL}")
 

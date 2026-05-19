@@ -104,11 +104,13 @@ _Fonte local deste bloco: `processada/SC.parquet`; campos e agregacoes usados: c
 
 ### Capital (Florianopolis)
 
-- Parquet da capital consolidado: `E:\dados\capitais_processada\SC_FLORIANOPOLIS.parquet` (25 linhas).
+- Parquet da capital consolidado: `E:\dados\capitais_processada\SC_FLORIANOPOLIS.parquet` (544.224 linhas apos a extracao de despesas 2016-2026 e anexacao de convenios detalhados).
 - Pasta bruta usada no pipeline da capital: `E:\dados\bases_convenios_capitais\Florianopolis`.
-- Exemplos de arquivos brutos da capital: `florianopolis_convenios_enriquecido.json`, `florianopolis_convenios_lista.json`, `florianopolis_convenios_resumo.json`.
-- Scripts associados a capital: `utils/orcamento_geral/processar_orcamento_geral_capitais.py`, `utils/orcamento_geral/baixar_convenios_capital_florianopolis.py`.
-- Fontes oficiais registradas para a capital: [transparencia.e-publica.net/epublica-portal/#/florianopolis/portal/despesa/convenioRepassadoTable?entidade=2002](https://transparencia.e-publica.net/epublica-portal/#/florianopolis/portal/despesa/convenioRepassadoTable?entidade=2002).
+- Exemplos de arquivos brutos da capital: `florianopolis_despesas_2016.json`, `florianopolis_despesas_2024.json`, `florianopolis_despesas_2025.json`, `florianopolis_despesas_2026.json`, `florianopolis_despesas_manifest.json`, `convenios_detalhe_2025.csv`, `convenios_detalhe_2026.csv`.
+- Scripts associados a capital: `utils/orcamento_geral/processar_orcamento_geral_capitais.py`, `utils/capitais/downloads/baixar_despesas_capital_florianopolis.py`, `utils/orcamento_geral/baixar_convenios_capital_florianopolis.py`.
+- Fontes oficiais registradas para a capital: [Dados Abertos - Despesa Execucao](https://transparencia.e-publica.net/epublica-portal/#/florianopolis/portal/dadosAbertos/despesaView?params=%7B%22mode%22%3A%22INFO%22%7D&entidade=2002), [API oficial de despesas](https://transparencia.e-publica.net/epublica-portal/rest/florianopolis/api/v1/despesa), [Convenios repassados](https://transparencia.e-publica.net/epublica-portal/#/florianopolis/portal/despesa/convenioRepassadoTable?entidade=2002).
+- Observacao da rodada 2026-05-13: a API oficial de dados abertos foi validada com os parametros `periodo_inicial`, `periodo_final`, `inicio_registro` e `quantidade_registro`. A primeira extracao cobriu 2016-2026 e substituiu o recorte antigo de 25 linhas baseado em convenios.
+- Observacao da rodada 2026-05-16: os CSVs `convenios_detalhe_2016.csv` a `convenios_detalhe_2026.csv` foram anexados ao processamento, adicionando 2.595 linhas validas de convenios/parcerias com CNPJ do recebedor. Os arquivos `gastos_favorecido_20*.csv` foram mantidos como fonte auxiliar agregada, sem anexacao ao parquet para evitar duplicacao das despesas detalhadas.
 
 ## Conclusao
 

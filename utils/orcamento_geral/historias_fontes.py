@@ -18,8 +18,8 @@ from utils.orcamento_geral.registry import STATE_CAPITALS, capital_parquet_name
 
 STATE_SOURCE_URLS: dict[str, list[str]] = {
     "AC": [
-        "https://transparencia.ac.gov.br/convenios",
-        "https://transparencia.ac.gov.br/convenios/detalhamento-pdf",
+        "https://transparencia.ac.gov.br/despesas",
+        "https://transparencia.ac.gov.br/despesas/listar",
     ],
     "AP": ["https://www.transparencia.ap.gov.br/"],
     "AM": ["https://www.transparencia.am.gov.br/"],
@@ -265,4 +265,3 @@ def provenance_section(uf: str) -> str:
         lines.append(f"- Observacao de trilha: {capital_note}")
     lines.append("")
     return "\n".join(lines)
-
