@@ -38,6 +38,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def default_input_path(scope: str) -> Path:
+    expanded = uf_raw_dir("AL", scope) / "coleta_2010_2026" / "despesas_alagoas_2010_2026.csv"
+    if expanded.exists():
+        return expanded
     return uf_raw_dir("AL", scope) / "coleta_2018_2026" / "despesas_alagoas_todos_anos.csv"
 
 
@@ -77,7 +80,7 @@ def main() -> None:
 
     source_df = read_csv_with_fallback(input_path)
     mapped = build_al_budget_frame(source_df)
-    normalized = normalize_preview(mapped, "AL")
+    normalized = normalize_preview(mapped, "AL", require_cnpj=True)
 
     output_path = output_dir / default_output_name("AL", args.scope)
     pq.write_table(build_parquet_table(normalized), output_path, compression="snappy")

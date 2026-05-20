@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 
 import pandas as pd
+import polars as pl
 import pyarrow.parquet as pq
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
@@ -41,8 +42,25 @@ def default_input_path(scope: str) -> Path:
     return uf_raw_dir("SP", scope) / "sp_parcerias_osc_enriquecido.csv"
 
 
+def default_general_input_dir(scope: str) -> Path:
+    return uf_raw_dir("SP", scope)
+
+
 def read_source(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, dtype=str, encoding="utf-8-sig")
+
+
+def read_general_sources(input_dir: Path) -> pd.DataFrame:
+    paths = sorted(input_dir.glob("sp_despesas_webservice_*.csv.gz"))
+    if not paths:
+        return pd.DataFrame()
+    return (
+        pl.concat(
+            [pl.read_csv(path, separator=",", infer_schema_length=0, ignore_errors=True).with_columns(pl.lit(path.name).alias("_arquivo_origem")) for path in paths],
+            how="diagonal_relaxed",
+        )
+        .to_pandas()
+    )
 
 
 def clean_text(series: pd.Series | None) -> pd.Series:
@@ -105,20 +123,76 @@ def build_sp_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
     return mapped[STANDARD_COLUMNS]
 
 
+def split_code_name(series: pd.Series | None) -> pd.Series:
+    text = clean_text(series)
+    return text.str.replace(r"^\s*\d+\s*-\s*", "", regex=True)
+
+
+def split_favored(series: pd.Series | None) -> tuple[pd.Series, pd.Series]:
+    text = clean_text(series)
+    parts = text.str.extract(r"^\s*([0-9Xx*./-]+)\s*-\s*(.+?)\s*$")
+    document = parts[0].combine_first(text)
+    name = parts[1].combine_first(text)
+    return document, name
+
+
+def build_sp_general_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
+    valor_total = first_non_empty(
+        source_df.get("ValorPago"),
+        source_df.get("ValorLiquidado"),
+        source_df.get("ValorEmpenhado"),
+    )
+    documento, credor = split_favored(source_df.get("CgcCpfFavorecido"))
+    mapped = pd.DataFrame(
+        {
+            "uf": "SP",
+            "origem": ORIGEM_ORCAMENTO_GERAL,
+            "ano": source_df.get("ano_consulta"),
+            "valor_total": valor_total,
+            "cnpj": documento,
+            "nome_osc": credor,
+            "mes": pd.NA,
+            "cod_municipio": source_df.get("CodigoNomeMunicipio"),
+            "municipio": split_code_name(source_df.get("CodigoNomeMunicipio")),
+            "objeto": first_non_empty(source_df.get("CodigoNomeProgramaTrabalho"), source_df.get("CodigoNomeAcao")),
+            "modalidade": first_non_empty(
+                source_df.get("CodigoNomeElemento"),
+                source_df.get("NaturezaDespesaNomeItem"),
+                source_df.get("CodigoNomeTipoLicitacao"),
+            ),
+            "data_inicio": pd.NA,
+            "data_fim": pd.NA,
+        }
+    )
+
+    for column in STANDARD_COLUMNS:
+        if column not in mapped.columns:
+            mapped[column] = pd.NA
+    return mapped[STANDARD_COLUMNS]
+
+
 def main() -> None:
     args = parse_args()
     input_path = Path(args.input) if args.input else default_input_path(args.scope)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    source_df = read_source(input_path)
-    mapped = build_sp_budget_frame(source_df)
-    normalized = normalize_preview(mapped, "SP", require_cnpj=True)
+    general_df = read_general_sources(default_general_input_dir(args.scope)) if args.input is None else pd.DataFrame()
+    if not general_df.empty:
+        source_df = general_df
+        mapped = build_sp_general_budget_frame(source_df)
+        normalized = normalize_preview(mapped, "SP", require_cnpj=True)
+        input_label = str(default_general_input_dir(args.scope) / "sp_despesas_webservice_*.csv.gz")
+    else:
+        source_df = read_source(input_path)
+        mapped = build_sp_budget_frame(source_df)
+        normalized = normalize_preview(mapped, "SP", require_cnpj=True)
+        input_label = str(input_path)
 
     output_path = output_dir / default_output_name("SP", args.scope)
     pq.write_table(build_parquet_table(normalized), output_path, compression="snappy")
 
-    print(f"Entrada: {input_path}")
+    print(f"Entrada: {input_label}")
     print(f"Saida: {output_path}")
     print(f"Linhas origem: {len(source_df)}")
     print(f"Linhas parquet: {len(normalized)}")

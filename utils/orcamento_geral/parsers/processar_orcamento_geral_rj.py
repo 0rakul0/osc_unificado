@@ -8,6 +8,7 @@ import unicodedata
 import zipfile
 
 import pandas as pd
+import polars as pl
 import pyarrow.parquet as pq
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
@@ -15,28 +16,21 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from project_paths import ORCAMENTO_GERAL_PROCESSADA_DIR, cli_default
-from utils.common import STANDARD_COLUMNS
-from utils.convenios.unificador import build_parquet_table, normalize_preview
+from utils.common import STANDARD_COLUMNS, clean_cnpj
+from utils.convenios.unificador import (
+    build_parquet_table,
+    clean_currency_text,
+    clean_integer_like_text,
+    clean_required_text,
+)
 from utils.orcamento_geral.paths import add_scope_argument, default_output_name, uf_raw_dir
 
 
 ORIGEM_ORCAMENTO_GERAL = "orcamento_geral"
-OSC_PATTERN = re.compile(
-    r"associ|institu|fundac|apae|sociedade|obra social|casa da crian|abrigo|centro educ|pestalozzi|"
-    r"santa casa|irmandade|reabilitar|riosolidario",
-    re.IGNORECASE,
-)
-PUBLIC_PATTERN = re.compile(
-    r"fundo municipal|fundo estadual|prefeitura|municipio de |secretaria|ministerio|tribunal|procuradoria|"
-    r"universidade|fundacao saude|fundacao.*estado|superintend|autarquia|camara municipal|receita federal",
-    re.IGNORECASE,
-)
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Processa a despesa do RJ com foco em convenios/subvencoes para OSC no schema padrao."
-    )
+    parser = argparse.ArgumentParser(description="Processa a despesa geral do RJ no schema padrao.")
     add_scope_argument(parser)
     parser.add_argument(
         "--input",
@@ -55,59 +49,9 @@ def default_input_path(scope: str) -> Path:
     return zip_path if zip_path.exists() else uf_raw_dir("RJ", scope) / "despesa2026.csv"
 
 
-def clean_text(series: pd.Series | None) -> pd.Series:
-    if series is None:
-        return pd.Series(dtype="string")
-    return (
-        series.astype("string")
-        .str.strip()
-        .replace({"": pd.NA, "nan": pd.NA, "None": pd.NA, "null": pd.NA})
-    )
-
-
-def read_source(path: Path) -> pd.DataFrame:
-    return pd.read_csv(path, dtype=str, sep=";", encoding="latin1", skiprows=5, engine="python")
-
-
 def infer_year(path: Path) -> str:
     match = re.search(r"(19|20)\d{2}", path.stem)
     return match.group(0) if match else "2026"
-
-
-def iter_source_frames(path: Path) -> list[tuple[pd.DataFrame, str]]:
-    if path.suffix.lower() != ".zip":
-        return [(read_source(path), infer_year(path))]
-
-    frames: list[tuple[pd.DataFrame, str]] = []
-    with zipfile.ZipFile(path) as archive:
-        for name in sorted(archive.namelist()):
-            if not name.lower().endswith(".csv"):
-                continue
-            year = infer_year(Path(name))
-            with archive.open(name) as handle:
-                for chunk in pd.read_csv(
-                    handle,
-                    dtype=str,
-                    sep=";",
-                    encoding="latin1",
-                    skiprows=5,
-                    chunksize=100_000,
-                    low_memory=False,
-                ):
-                    frames.append((chunk, year))
-    return frames
-
-
-def first_non_empty(*series: pd.Series | None) -> pd.Series:
-    result: pd.Series | None = None
-    for current in series:
-        if current is None:
-            continue
-        cleaned = clean_text(current)
-        result = cleaned if result is None else result.combine_first(cleaned)
-    if result is None:
-        return pd.Series(dtype="string")
-    return result
 
 
 def normalize_column_name(value: str) -> str:
@@ -115,80 +59,99 @@ def normalize_column_name(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", text.lower())
 
 
-def get_column(source_df: pd.DataFrame, *names: str) -> pd.Series | None:
+def read_csv_polars(source: object) -> pl.DataFrame:
+    return pl.read_csv(source, separator=";", encoding="utf8-lossy", skip_rows=5, infer_schema=False)
+
+
+def iter_source_frames(path: Path) -> list[tuple[pl.DataFrame, str]]:
+    if path.suffix.lower() != ".zip":
+        return [(read_csv_polars(path), infer_year(path))]
+
+    frames: list[tuple[pl.DataFrame, str]] = []
+    with zipfile.ZipFile(path) as archive:
+        for name in sorted(archive.namelist()):
+            if not name.lower().endswith(".csv"):
+                continue
+            with archive.open(name) as handle:
+                frames.append((read_csv_polars(handle), infer_year(Path(name))))
+    return frames
+
+
+def polars_column(source_df: pl.DataFrame, *names: str) -> str | None:
     normalized = {normalize_column_name(column): column for column in source_df.columns}
     for name in names:
         if name in source_df.columns:
-            return source_df[name]
+            return name
         column = normalized.get(normalize_column_name(name))
         if column is not None:
-            return source_df[column]
+            return column
     return None
 
 
-def first_non_zero(*series: pd.Series | None) -> pd.Series:
-    result: pd.Series | None = None
-    for current in series:
-        if current is None:
-            continue
-        cleaned = clean_text(current)
-        numeric = pd.to_numeric(cleaned.str.replace(".", "", regex=False).str.replace(",", ".", regex=False), errors="coerce")
-        cleaned = cleaned.where(numeric.ne(0), pd.NA)
-        result = cleaned if result is None else result.combine_first(cleaned)
-    if result is None:
-        return pd.Series(dtype="string")
-    return result
+def pl_col_or_null(source_df: pl.DataFrame, *names: str) -> pl.Expr:
+    column = polars_column(source_df, *names)
+    return pl.col(column).cast(pl.String) if column else pl.lit(None, dtype=pl.String)
 
 
-def build_focus_mask(source_df: pd.DataFrame) -> pd.Series:
-    nome_credor = clean_text(get_column(source_df, "Nome Credor")).fillna("")
-    nome_elemento = clean_text(get_column(source_df, "Nome Elemento")).fillna("")
-    historico = clean_text(get_column(source_df, "Historico", "Histórico", "HistÃ³rico")).fillna("")
+def first_non_empty_expr(*exprs: pl.Expr) -> pl.Expr:
+    return pl.coalesce([expr.str.strip_chars().replace("", None) for expr in exprs])
 
-    nome_osc = nome_credor.str.contains(OSC_PATTERN, na=False)
-    publico = nome_credor.str.contains(PUBLIC_PATTERN, na=False)
-    subvencao = nome_elemento.str.contains(r"subven", case=False, regex=True, na=False)
-    termo_osc = historico.str.contains(
-        r"conv..nio|parcer|fomento|termo de colabora|termo de fomento|contrato de gest",
-        case=False,
-        regex=True,
-        na=False,
+
+def first_non_zero_expr(*exprs: pl.Expr) -> pl.Expr:
+    cleaned: list[pl.Expr] = []
+    for expr in exprs:
+        text = expr.str.strip_chars().replace("", None)
+        numeric = text.str.replace_all(r"\.", "").str.replace(",", ".").cast(pl.Float64, strict=False)
+        cleaned.append(pl.when(numeric != 0).then(text).otherwise(None))
+    return pl.coalesce(cleaned)
+
+
+def build_rj_budget_frame(source_df: pl.DataFrame, ano: str) -> pd.DataFrame:
+    mapped = source_df.select(
+        [
+            pl.lit("RJ").alias("uf"),
+            pl.lit(ORIGEM_ORCAMENTO_GERAL).alias("origem"),
+            pl.lit(ano).alias("ano"),
+            first_non_zero_expr(
+                pl_col_or_null(source_df, "Valor Pago"),
+                pl_col_or_null(source_df, "Valor Liquidado"),
+                pl_col_or_null(source_df, "Valor Empenhado"),
+            ).alias("valor_total"),
+            pl_col_or_null(source_df, "Credor").alias("cnpj"),
+            pl_col_or_null(source_df, "Nome Credor").alias("nome_osc"),
+            pl.lit(None, dtype=pl.String).alias("mes"),
+            pl.lit(None, dtype=pl.String).alias("cod_municipio"),
+            pl.lit(None, dtype=pl.String).alias("municipio"),
+            pl_col_or_null(source_df, "Historico", "Historico").alias("objeto"),
+            first_non_empty_expr(
+                pl_col_or_null(source_df, "Nome Elemento"),
+                pl_col_or_null(source_df, "Nome Modalidade de Aplicacao"),
+            ).alias("modalidade"),
+            pl.lit(None, dtype=pl.String).alias("data_inicio"),
+            pl.lit(None, dtype=pl.String).alias("data_fim"),
+        ]
     )
-    return ((subvencao & nome_osc) | (termo_osc & nome_osc)) & ~publico
+    return mapped.to_pandas()
 
 
-def build_rj_budget_frame(source_df: pd.DataFrame, ano: str) -> pd.DataFrame:
-    filtered = source_df.loc[build_focus_mask(source_df)].copy()
-
-    mapped = pd.DataFrame(
-        {
-            "uf": "RJ",
-            "origem": ORIGEM_ORCAMENTO_GERAL,
-            "ano": ano,
-            "valor_total": first_non_zero(
-                get_column(filtered, "Valor Pago"),
-                get_column(filtered, "Valor Liquidado"),
-                get_column(filtered, "Valor Empenhado"),
-            ),
-            "cnpj": get_column(filtered, "Credor"),
-            "nome_osc": get_column(filtered, "Nome Credor"),
-            "mes": pd.NA,
-            "cod_municipio": pd.NA,
-            "municipio": pd.NA,
-            "objeto": get_column(filtered, "Historico", "Histórico", "HistÃ³rico"),
-            "modalidade": first_non_empty(
-                get_column(filtered, "Nome Elemento"),
-                get_column(filtered, "Nome Modalidade de Aplicacao", "Nome Modalidade de Aplicação", "Nome Modalidade de AplicaÃ§Ã£o"),
-            ),
-            "data_inicio": pd.NA,
-            "data_fim": pd.NA,
-        }
+def normalize_general_preview(preview_df: pd.DataFrame) -> pd.DataFrame:
+    normalized = (
+        preview_df.reindex(columns=STANDARD_COLUMNS)
+        .assign(
+            origem=lambda df: clean_required_text(df["origem"]).fillna(ORIGEM_ORCAMENTO_GERAL),
+            ano=lambda df: clean_integer_like_text(df["ano"]),
+            mes=lambda df: clean_integer_like_text(df["mes"]),
+            cnpj=lambda df: clean_cnpj(df["cnpj"]),
+            valor_total=lambda df: clean_currency_text(df["valor_total"]),
+        )
+        .dropna(subset=["valor_total", "cnpj"])
     )
 
-    for column in STANDARD_COLUMNS:
-        if column not in mapped.columns:
-            mapped[column] = pd.NA
-    return mapped[STANDARD_COLUMNS]
+    if normalized.empty:
+        return pd.DataFrame(columns=STANDARD_COLUMNS).astype("string")
+
+    normalized = normalized.astype("string")
+    return normalized.where(pd.notna(normalized), None)
 
 
 def main() -> None:
@@ -199,8 +162,7 @@ def main() -> None:
 
     mapped_frames = [build_rj_budget_frame(frame, year) for frame, year in iter_source_frames(input_path)]
     mapped = pd.concat(mapped_frames, ignore_index=True) if mapped_frames else pd.DataFrame(columns=STANDARD_COLUMNS)
-    normalized = normalize_preview(mapped, "RJ", require_cnpj=True)
-    normalized = normalized.drop_duplicates(subset=["ano", "cnpj", "nome_osc", "valor_total", "objeto"])
+    normalized = normalize_general_preview(mapped)
 
     output_path = output_dir / default_output_name("RJ", args.scope)
     pq.write_table(build_parquet_table(normalized), output_path, compression="snappy")
@@ -208,6 +170,7 @@ def main() -> None:
     print(f"Entrada: {input_path}")
     print(f"Saida: {output_path}")
     print(f"Partes origem: {len(mapped_frames)}")
+    print(f"Linhas origem: {len(mapped)}")
     print(f"Linhas parquet: {len(normalized)}")
     print(f"Origem aplicada: {ORIGEM_ORCAMENTO_GERAL}")
 

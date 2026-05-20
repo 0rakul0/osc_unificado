@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import re
 import sys
+import unicodedata
 
 import pandas as pd
 import pyarrow.parquet as pq
@@ -13,7 +14,7 @@ ROOT_DIR = Path(__file__).resolve().parents[3]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from project_paths import ORCAMENTO_GERAL_PROCESSADA_DIR, cli_default
+from project_paths import GOVERNO_FEDERAL_DIR, ORCAMENTO_GERAL_PROCESSADA_DIR, cli_default
 from utils.common import STANDARD_COLUMNS
 from utils.convenios.unificador import build_parquet_table, normalize_preview
 from utils.orcamento_geral.paths import add_scope_argument, default_output_name, uf_raw_dir
@@ -70,6 +71,21 @@ def read_api_source(input_dir: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def read_general_expense_sources(input_dir: Path) -> pd.DataFrame:
+    paths = sorted(input_dir.glob("ro_empenhos_gerais_*.json"))
+    frames: list[pd.DataFrame] = []
+    for path in paths:
+        if path.name.endswith("_manifest.json"):
+            continue
+        rows = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(rows, list):
+            raise ValueError(f"JSON inesperado em {path}")
+        frame = pd.DataFrame(rows)
+        frame["_arquivo_origem"] = path.name
+        frames.append(frame)
+    return pd.concat(frames, ignore_index=True, sort=False) if frames else pd.DataFrame()
+
+
 def clean_text(series: pd.Series | None) -> pd.Series:
     if series is None:
         return pd.Series(dtype="string")
@@ -90,6 +106,86 @@ def first_non_empty(*series: pd.Series | None) -> pd.Series:
     if result is None:
         return pd.Series(dtype="string")
     return result
+
+
+def normalize_lookup_text(value: object) -> str | None:
+    if pd.isna(value):
+        return None
+    text = unicodedata.normalize("NFKD", str(value).strip().upper())
+    text = text.encode("ascii", "ignore").decode("ascii")
+    text = re.sub(r"[^A-Z0-9]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text or None
+
+
+def normalize_lookup_alias(value: object) -> str | None:
+    text = normalize_lookup_text(value)
+    if not text:
+        return None
+    text = re.sub(
+        r"^(?:PREFEITURA MUNICIPAL DE|PREFEITURA DE|MUNICIPIO DE|MUNICIPIO|MUN DE)\s+",
+        "",
+        text,
+    )
+    text = re.sub(r"\b(?:RO|RONDONIA)$", "", text).strip()
+    text = re.sub(r"\s+", " ", text).strip()
+    return text or None
+
+
+def build_unique_government_lookup(frame: pd.DataFrame, key_column: str) -> pd.DataFrame:
+    grouped = (
+        frame.dropna(subset=[key_column])
+        .groupby(key_column, dropna=True)
+        .agg(
+            nome_governo=("nome_osc", "first"),
+            cnpjs=("cnpj", lambda values: sorted(set(values))),
+        )
+        .reset_index()
+    )
+    grouped = grouped[grouped["cnpjs"].map(len).eq(1)].copy()
+    grouped["cnpj"] = grouped["cnpjs"].map(lambda values: values[0])
+    return grouped[[key_column, "cnpj", "nome_governo"]]
+
+
+def load_government_lookup(uf: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    path = GOVERNO_FEDERAL_DIR / f"{uf}.parquet"
+    if not path.exists():
+        empty = pd.DataFrame(columns=["nome_key", "cnpj", "nome_governo"])
+        return empty, empty.rename(columns={"nome_key": "alias_key"})
+
+    frame = pq.read_table(path, columns=["cnpj", "nome_osc"]).to_pandas()
+    frame["cnpj"] = frame["cnpj"].astype("string").str.replace(r"\D", "", regex=True)
+    frame = frame[frame["cnpj"].str.len().eq(14).fillna(False)].copy()
+    frame["nome_key"] = frame["nome_osc"].map(normalize_lookup_text)
+    frame["alias_key"] = frame["nome_osc"].map(normalize_lookup_alias)
+    lookup_nome = build_unique_government_lookup(frame, "nome_key")
+    lookup_alias = build_unique_government_lookup(frame, "alias_key")
+    return lookup_nome, lookup_alias
+
+
+def enrich_cnpj_from_government(mapped: pd.DataFrame, uf: str) -> pd.DataFrame:
+    if mapped.empty or "nome_osc" not in mapped.columns:
+        return mapped
+
+    lookup_nome, lookup_alias = load_government_lookup(uf)
+    if lookup_nome.empty and lookup_alias.empty:
+        return mapped
+
+    enriched = mapped.copy()
+    enriched["nome_key"] = enriched["nome_osc"].map(normalize_lookup_text)
+    enriched["alias_key"] = enriched["nome_osc"].map(normalize_lookup_alias)
+    enriched = enriched.merge(
+        lookup_nome.rename(columns={"cnpj": "cnpj_lookup_nome"}),
+        on="nome_key",
+        how="left",
+    )
+    enriched = enriched.merge(
+        lookup_alias.rename(columns={"cnpj": "cnpj_lookup_alias"}),
+        on="alias_key",
+        how="left",
+    )
+    enriched["cnpj"] = first_non_empty(enriched.get("cnpj"), enriched.get("cnpj_lookup_nome"), enriched.get("cnpj_lookup_alias"))
+    return enriched[STANDARD_COLUMNS]
 
 
 def extract_date(series: pd.Series | None) -> pd.Series:
@@ -195,6 +291,36 @@ def build_ro_api_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
     return mapped[STANDARD_COLUMNS]
 
 
+def build_ro_general_expense_frame(source_df: pd.DataFrame) -> pd.DataFrame:
+    if source_df.empty:
+        return pd.DataFrame(columns=STANDARD_COLUMNS)
+
+    data_documento = clean_text(source_df.get("dataDocumentoFormatada"))
+    ano, mes = extract_year_month(data_documento)
+    mapped = pd.DataFrame(
+        {
+            "uf": "RO",
+            "origem": ORIGEM_ORCAMENTO_GERAL,
+            "ano": ano,
+            "valor_total": first_non_empty(source_df.get("valorPago"), source_df.get("valorEmpenhado")),
+            "cnpj": pd.NA,
+            "nome_osc": source_df.get("credor"),
+            "mes": mes,
+            "cod_municipio": pd.NA,
+            "municipio": pd.NA,
+            "objeto": source_df.get("numeroEmpenho"),
+            "modalidade": source_df.get("unidadeGestora"),
+            "data_inicio": data_documento,
+            "data_fim": pd.NA,
+        }
+    )
+
+    for column in STANDARD_COLUMNS:
+        if column not in mapped.columns:
+            mapped[column] = pd.NA
+    return enrich_cnpj_from_government(mapped[STANDARD_COLUMNS], "RO")
+
+
 def main() -> None:
     args = parse_args()
     input_dir = default_input_dir(args.scope)
@@ -202,14 +328,19 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    source_df = read_source(input_path)
-    api_df = read_api_source(input_dir)
-    frames = [build_ro_budget_frame(source_df)]
-    if not api_df.empty:
-        frames.append(build_ro_api_budget_frame(api_df))
-    mapped = pd.concat(frames, ignore_index=True)
-    normalized = normalize_preview(mapped, "RO", require_cnpj=False)
-    normalized = normalized.drop_duplicates(subset=["ano", "cnpj", "nome_osc", "valor_total", "objeto"])
+    general_df = read_general_expense_sources(input_dir)
+    if not general_df.empty:
+        source_df = general_df
+        api_df = pd.DataFrame()
+        mapped = build_ro_general_expense_frame(general_df)
+    else:
+        source_df = read_source(input_path)
+        api_df = read_api_source(input_dir)
+        frames = [build_ro_budget_frame(source_df)]
+        if not api_df.empty:
+            frames.append(build_ro_api_budget_frame(api_df))
+        mapped = pd.concat(frames, ignore_index=True)
+    normalized = normalize_preview(mapped, "RO", require_cnpj=True)
 
     output_path = output_dir / default_output_name("RO", args.scope)
     pq.write_table(build_parquet_table(normalized), output_path, compression="snappy")

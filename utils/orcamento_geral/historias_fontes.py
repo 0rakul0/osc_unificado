@@ -21,9 +21,18 @@ STATE_SOURCE_URLS: dict[str, list[str]] = {
         "https://transparencia.ac.gov.br/despesas",
         "https://transparencia.ac.gov.br/despesas/listar",
     ],
-    "AP": ["https://www.transparencia.ap.gov.br/"],
-    "AM": ["https://www.transparencia.am.gov.br/"],
+    "AP": [
+        "https://www.transparencia.ap.gov.br/informacoes/dados-aberto",
+        "https://www.transparencia.ap.gov.br/relatorios/dados-aberto/despesas/",
+    ],
+    "AM": [
+        "https://www.transparencia.am.gov.br/despesas/",
+        "https://sistemas.sefaz.am.gov.br/transpprd/mnt/info/RelPagamentos.do?method=Pesquisar&interno=true",
+        "https://sistemas.sefaz.am.gov.br/transpprd/mnt/info/RelPagamentosConsultaCredor.do",
+    ],
     "DF": ["https://dados.df.gov.br/"],
+    "PI": ["https://api.transparencia.pi.gov.br/api/v2/despesas/{year}/1/12/"],
+    "SE": ["https://api.transparencia.se.gov.br/api/relatorios/empenho/export"],
     "MT": [
         "https://consultas.transparencia.mt.gov.br/dados_abertos_consultas/despesa/",
         "https://consultas.transparencia.mt.gov.br/dados_abertos/despesa/Despesa_{year}.csv",
@@ -31,22 +40,25 @@ STATE_SOURCE_URLS: dict[str, list[str]] = {
     "PA": ["https://api-notas-empenho.sistemas.pa.gov.br/notas-empenho/detalhe"],
     "PB": ["https://www.dados.pb.gov.br/"],
     "RN": ["http://convenios.control.rn.gov.br/conveniorelsite.aspx"],
-    "RO": ["https://transparencia.ro.gov.br/convenios/filtrartransferencias"],
+    "RO": [
+        "https://transparencia.ro.gov.br/despesa/despesa-estadual",
+        "https://transparencia.ro.gov.br/Despesa/FiltrarEmpenhos",
+    ],
     "RR": ["https://api.transparencia.rr.gov.br/api/v1/portal/transparencia/visualizar-despesa-detalhada"],
     "SC": [
         "https://consultas.sctransferencias.cge.sc.gov.br/",
         "https://sctransf-api.prod.okd4.ciasc.sc.gov.br/csv/transferencias",
     ],
     "SP": [
-        "http://www.parceriassociais.sp.gov.br",
-        "http://www.parceriassociais.sp.gov.br/OSC/Termos_Acordos",
+        "https://portal.fazenda.sp.gov.br/acessoinformacao/Paginas/Web-Services.aspx",
+        "https://webservices.fazenda.sp.gov.br/WSTransparencia/TransparenciaServico.asmx",
     ],
 }
 
 STATE_NOTES: dict[str, str] = {
     "AL": "Serie montada a partir de base legada local preservada em `bases_convenios/AL`.",
-    "AM": "Serie consolidada com planilhas legadas preservadas em `bases_convenios/AM`.",
-    "AP": "Serie consolidada a partir de planilha legada preservada em `bases_convenios/AP/TERMO DE FOMENTO.xlsx`.",
+    "AM": "Serie 2010-2026 baixada do CSV anual de pagamentos por credor do portal legado da SEFAZ-AM e preservada em `bases_orcamento_geral/AM`.",
+    "AP": "Serie 2015-2024 baixada dos Dados Abertos oficiais de despesas do portal estadual e preservada em `bases_orcamento_geral/AP`.",
     "BA": "Serie montada a partir de arquivos locais legados preservados em `bases_convenios/BA`.",
     "CE": "Serie montada a partir de arquivos locais legados preservados em `bases_convenios/CE`.",
     "ES": "Serie recomposta a partir de arquivos CSV legados preservados em `bases_orcamento_geral/ES`.",
@@ -56,11 +68,12 @@ STATE_NOTES: dict[str, str] = {
     "MS": "Serie derivada dos CSVs locais preservados em `bases_orcamento_geral/MS`.",
     "PA": "Serie complementada com CSVs locais preservados em `bases_orcamento_geral/PA`.",
     "PE": "Serie montada a partir do acervo local preservado em `bases_orcamento_geral/PE`.",
-    "PI": "Serie montada a partir da planilha consolidada local preservada em `bases_orcamento_geral/PI`.",
-    "PR": "Serie derivada dos zips historicos preservados em `bases_orcamento_geral/PR`.",
-    "RJ": "Serie montada a partir de planilhas e CSVs locais preservados em `bases_orcamento_geral/RJ`.",
+    "PI": "Serie 2022-2026 baixada pagina a pagina da API estadual de despesas e preservada em `bases_orcamento_geral/PI`.",
+    "PR": "Serie derivada dos zips historicos de pagamentos preservados em `bases_orcamento_geral/PR`.",
+    "RJ": "Serie montada a partir do ZIP oficial de despesas preservado em `bases_orcamento_geral/RJ`.",
     "RS": "Serie derivada dos zips historicos preservados em `bases_orcamento_geral/RS`.",
-    "SE": "Serie montada a partir de planilhas locais preservadas em `bases_orcamento_geral/SE`.",
+    "SE": "Serie montada a partir de planilhas locais 2023-2025 e export JSON 2026 preservados em `bases_orcamento_geral/SE`.",
+    "SP": "Serie 2010-2026 baixada do Web Service oficial da Fazenda/SP (`ConsultarDespesas`) e preservada em `bases_orcamento_geral/SP`.",
     "TO": "Serie consolidada a partir da planilha legada `bases_convenios/TO/convenios_completo.xlsx`.",
 }
 

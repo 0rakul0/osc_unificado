@@ -23,7 +23,7 @@ ORIGEM_ORCAMENTO_GERAL = "orcamento_geral"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Processa as despesas do PI com foco em transferencias para OSC no schema padrao."
+        description="Processa as despesas gerais do PI no schema padrao."
     )
     add_scope_argument(parser)
     parser.add_argument(
@@ -74,6 +74,11 @@ def read_source(path: Path) -> pd.DataFrame:
 
 
 def read_default_sources(input_dir: Path) -> pd.DataFrame:
+    general_jsons = sorted(input_dir.glob("pi_despesas_gerais_*.json"))
+    if general_jsons:
+        frames = [read_json_records(path) for path in general_jsons]
+        return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
     focused_jsons = sorted(input_dir.glob("pi_despesas_osc_*.json"))
     if focused_jsons:
         frames = [read_json_records(path) for path in focused_jsons]
@@ -105,7 +110,7 @@ def build_focus_mask(source_df: pd.DataFrame) -> pd.Series:
 
 
 def build_pi_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
-    filtered = source_df.loc[build_focus_mask(source_df)].copy()
+    filtered = source_df.copy()
     emissao_data = pd.to_datetime(filtered.get("emissao_data"), errors="coerce")
 
     mapped = pd.DataFrame(

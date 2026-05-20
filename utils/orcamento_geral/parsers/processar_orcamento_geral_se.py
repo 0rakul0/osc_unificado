@@ -174,7 +174,7 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     mapped = build_se_budget_frame(input_dir)
-    normalized = normalize_preview(mapped, "SE", require_cnpj=False)
+    normalized = normalize_preview(mapped, "SE", require_cnpj=True)
 
     output_path = output_dir / default_output_name("SE", args.scope)
     pq.write_table(build_parquet_table(normalized), output_path, compression="snappy")

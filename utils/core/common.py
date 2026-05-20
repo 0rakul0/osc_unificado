@@ -134,10 +134,7 @@ def clean_document(value: object) -> object:
     digits_only = re.sub(r"\D+", "", filtered)
 
     if "*" in filtered:
-        return filtered if len(filtered) in {11, 14} else pd.NA
-
-    if len(digits_only) == 11:
-        return digits_only
+        return pd.NA
 
     if 11 < len(digits_only) <= 14:
         return digits_only.zfill(14)
@@ -147,6 +144,27 @@ def clean_document(value: object) -> object:
 
 def clean_cnpj(series: pd.Series) -> pd.Series:
     return series.map(clean_document)
+
+
+def clean_valid_cnpj(series: pd.Series) -> pd.Series:
+    cleaned = clean_cnpj(series)
+    return cleaned.where(cleaned.map(is_valid_cnpj), pd.NA)
+
+
+def is_valid_cnpj(value: object) -> bool:
+    digits = re.sub(r"\D+", "", str(value or ""))
+    if len(digits) != 14 or len(set(digits)) == 1:
+        return False
+
+    numbers = [int(digit) for digit in digits]
+
+    def calculate_digit(items: list[int], weights: list[int]) -> int:
+        remainder = sum(item * weight for item, weight in zip(items, weights)) % 11
+        return 0 if remainder < 2 else 11 - remainder
+
+    first_digit = calculate_digit(numbers[:12], [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+    second_digit = calculate_digit(numbers[:13], [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+    return numbers[12] == first_digit and numbers[13] == second_digit
 
 
 def infer_year(text: str | None) -> int | None:

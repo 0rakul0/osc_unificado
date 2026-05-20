@@ -1,0 +1,7 @@
+uf,status,returncode,seconds,command,log,note
+TO,sem_downloader,,0.0,,,"ha parser ou bruto local/manual, mas nao ha downloader em utils/orcamento_geral/downloads"
+BA,sem_downloader,,0.0,,,"ha parser ou bruto local/manual, mas nao ha downloader em utils/orcamento_geral/downloads"
+AC,dry-run,,0.0,C:\Users\jeffe\AppData\Local\Programs\Python\Python313\python.exe D:\github\osc_unificado\utils\orcamento_geral\baixar_orcamento_geral_ac.py,logs\download_orcamento_geral\AC.log,
+AL,dry-run,,0.0,C:\Users\jeffe\AppData\Local\Programs\Python\Python313\python.exe D:\github\osc_unificado\utils\orcamento_geral\baixar_orcamento_geral_al.py,logs\download_orcamento_geral\AL.log,
+PR,dry-run,,0.0,C:\Users\jeffe\AppData\Local\Programs\Python\Python313\python.exe D:\github\osc_unificado\utils\orcamento_geral\baixar_orcamento_geral_pr.py,logs\download_orcamento_geral\PR.log,
+SP,dry-run,,0.0,C:\Users\jeffe\AppData\Local\Programs\Python\Python313\python.exe D:\github\osc_unificado\utils\orcamento_geral\baixar_orcamento_geral_sp_despesas.py,logs\download_orcamento_geral\SP.log,"usa o webservice de despesas gerais, nao o portal de parcerias"

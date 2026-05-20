@@ -36,7 +36,7 @@ VIGENCIA_PATTERN = re.compile(r"(\d{2}/\d{2}/\d{4})\s+at[eé]\s+(\d{2}/\d{2}/\d{
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Processa a base legada de transferencias voluntarias do Amazonas com foco em OSC."
+        description="Processa pagamentos gerais do Amazonas ou a base legada de transferencias voluntarias."
     )
     parser.add_argument(
         "--input",
@@ -134,6 +134,22 @@ def read_source(path: Path) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
+def default_general_input_dir() -> Path:
+    from project_paths import BASES_ORCAMENTO_GERAL_DIR
+
+    return BASES_ORCAMENTO_GERAL_DIR / "AM"
+
+
+def read_general_payment_sources(input_dir: Path) -> pd.DataFrame:
+    frames: list[pd.DataFrame] = []
+    for path in sorted(input_dir.glob("am_pagamentos_credor_*.csv")):
+        frame = pd.read_csv(path, dtype=str, encoding="latin1")
+        frame["_arquivo_origem"] = path.name
+        frame["_ano_origem"] = path.stem.rsplit("_", 1)[-1]
+        frames.append(frame)
+    return pd.concat(frames, ignore_index=True, sort=False) if frames else pd.DataFrame()
+
+
 def build_focus_mask(source_df: pd.DataFrame) -> pd.Series:
     nome = clean_text(source_df.get("Convenente")).fillna("")
     cnpj = clean_document(source_df.get("CNPJ")).fillna("")
@@ -146,6 +162,9 @@ def build_focus_mask(source_df: pd.DataFrame) -> pd.Series:
 
 
 def build_am_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
+    if {"CREDOR", "VALOR PAGO"}.issubset(source_df.columns):
+        return build_am_general_payment_frame(source_df)
+
     filtered = source_df.loc[build_focus_mask(source_df)].copy()
     data_inicio, data_fim = split_vigencia(filtered.get("Vigencia"))
     ano_inicio, mes = extract_year_month(data_inicio)
@@ -175,20 +194,58 @@ def build_am_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
     return mapped[STANDARD_COLUMNS]
 
 
+def split_creditor(series: pd.Series | None) -> tuple[pd.Series, pd.Series]:
+    cleaned = clean_text(series)
+    if cleaned.empty:
+        return cleaned, cleaned
+    extracted = cleaned.str.extract(r"^\s*(.*?)\s*-\s*(.*)$")
+    document = extracted[0].astype("string").combine_first(cleaned)
+    name = extracted[1].astype("string").combine_first(cleaned)
+    return document, name
+
+
+def build_am_general_payment_frame(source_df: pd.DataFrame) -> pd.DataFrame:
+    document, name = split_creditor(source_df.get("CREDOR"))
+    mapped = pd.DataFrame(
+        {
+            "uf": "AM",
+            "origem": ORIGEM_ORCAMENTO_GERAL,
+            "ano": source_df.get("_ano_origem"),
+            "valor_total": source_df.get("VALOR PAGO"),
+            "cnpj": clean_document(document),
+            "nome_osc": name,
+            "mes": pd.NA,
+            "cod_municipio": pd.NA,
+            "municipio": pd.NA,
+            "objeto": "Pagamentos por credor - consolidado anual",
+            "modalidade": "pagamentos_credor",
+            "data_inicio": pd.NA,
+            "data_fim": pd.NA,
+        }
+    )
+
+    for column in STANDARD_COLUMNS:
+        if column not in mapped.columns:
+            mapped[column] = pd.NA
+    return mapped[STANDARD_COLUMNS]
+
+
 def main() -> None:
     args = parse_args()
     input_path = Path(args.input)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    source_df = read_source(input_path)
+    general_df = read_general_payment_sources(default_general_input_dir())
+    using_general = not general_df.empty
+    source_df = general_df if using_general else read_source(input_path)
     mapped = build_am_budget_frame(source_df)
     normalized = normalize_preview(mapped, "AM", require_cnpj=True)
 
     output_path = output_dir / "AM.parquet"
     pq.write_table(build_parquet_table(normalized), output_path, compression="snappy")
 
-    print(f"Entrada: {input_path}")
+    print(f"Entrada: {default_general_input_dir() / 'am_pagamentos_credor_*.csv' if using_general else input_path}")
     print(f"Saida: {output_path}")
     print(f"Linhas origem: {len(source_df)}")
     print(f"Linhas parquet: {len(normalized)}")

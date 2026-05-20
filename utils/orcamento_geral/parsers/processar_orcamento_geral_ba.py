@@ -6,6 +6,7 @@ import sys
 
 import pandas as pd
 import pyarrow.parquet as pq
+from openpyxl import load_workbook
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
 if str(ROOT_DIR) not in sys.path:
@@ -57,21 +58,84 @@ def read_csv_with_fallback(path: Path) -> pd.DataFrame:
 
 def read_source(path: Path) -> pd.DataFrame:
     if path.suffix.lower() in {".xlsx", ".xls"}:
-        return pd.read_excel(path, dtype=str)
+        return pd.DataFrame(iter_general_expense_rows(path))
     return read_csv_with_fallback(path)
 
 
 def read_default_sources(input_dir: Path) -> pd.DataFrame:
+    payment_paths = sorted(input_dir.glob("pagamentos_painel_*_detalhamento.csv"))
+    if payment_paths:
+        frames = [read_csv_with_fallback(path).assign(_arquivo_origem=path.name) for path in payment_paths]
+        return pd.concat(frames, ignore_index=True, sort=False)
+
     paths = sorted(input_dir.glob("despesas_*.xlsx"))
     if not paths:
         return read_source(input_dir / "pagamentos_osc_candidatas_cruzadas.csv")
 
-    frames: list[pd.DataFrame] = []
+    rows: list[dict[str, object]] = []
     for path in paths:
-        frame = pd.read_excel(path, dtype=str)
-        frame["_arquivo_origem"] = path.name
-        frames.append(frame)
-    return pd.concat(frames, ignore_index=True, sort=False)
+        rows.extend(iter_general_expense_rows(path))
+    return pd.DataFrame(rows)
+
+
+def clean_value(value: object) -> object:
+    if value is None:
+        return pd.NA
+    text = str(value).strip()
+    if not text or text.lower() in {"nan", "none", "null"}:
+        return pd.NA
+    return text
+
+
+def first_non_empty_value(*values: object) -> object:
+    for value in values:
+        cleaned = clean_value(value)
+        if not pd.isna(cleaned):
+            return cleaned
+    return pd.NA
+
+
+def iter_general_expense_rows(path: Path) -> list[dict[str, object]]:
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    worksheet = workbook.active
+    header = next(worksheet.iter_rows(min_row=1, max_row=1, values_only=True))
+    columns = [str(value).strip() if value is not None else "" for value in header]
+    index_by_name = {name: idx for idx, name in enumerate(columns) if name}
+    rows: list[dict[str, object]] = []
+
+    def get(values: tuple[object, ...], column: str) -> object:
+        index = index_by_name.get(column)
+        return values[index] if index is not None and index < len(values) else None
+
+    for values in worksheet.iter_rows(min_row=2, values_only=True):
+        rows.append(
+            {
+                "uf": "BA",
+                "origem": ORIGEM_ORCAMENTO_GERAL,
+                "ano": first_non_empty_value(get(values, "ANO_EXERCICIO")),
+                "valor_total": first_non_empty_value(
+                    get(values, "VAL_PAGO"),
+                    get(values, "VAL_LIQUIDADO_TOTAL"),
+                    get(values, "VAL_EMPENHADO_TOTAL"),
+                ),
+                "cnpj": pd.NA,
+                "nome_osc": first_non_empty_value(get(values, "NOM_UNIDADE_GESTORA"), get(values, "NOM_ORGAO_ORCAMENTO")),
+                "mes": first_non_empty_value(get(values, "MES_EXERCICIO")),
+                "cod_municipio": pd.NA,
+                "municipio": pd.NA,
+                "objeto": first_non_empty_value(get(values, "NOM_ACAO_PROGRAMA_GOVERNO"), get(values, "NOM_PROGRAMA_GOVERNO")),
+                "modalidade": first_non_empty_value(
+                    get(values, "NOM_MODALIDADE_APLICACAO_ORCAMENTO"),
+                    get(values, "NOM_ELEMENTO_DESPESA_ORCAMENTO"),
+                    get(values, "NOM_GRUPO_DESPESA_ORCAMENTO"),
+                ),
+                "data_inicio": first_non_empty_value(get(values, "DATA_COMPLETA")),
+                "data_fim": pd.NA,
+            }
+        )
+
+    workbook.close()
+    return rows
 
 
 def first_non_empty(*series: pd.Series | None) -> pd.Series:
@@ -91,8 +155,14 @@ def first_non_empty(*series: pd.Series | None) -> pd.Series:
 
 
 def build_ba_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
+    if set(STANDARD_COLUMNS).issubset(source_df.columns):
+        return source_df[STANDARD_COLUMNS]
+
     if "ANO_EXERCICIO" in source_df.columns:
         return build_ba_general_expense_frame(source_df)
+
+    if {"Recebedor", "CPF/CNPJ", "Valor do Pagamento", "Data do Pagamento"}.issubset(source_df.columns):
+        return build_ba_payment_detail_frame(source_df)
 
     modalidade = first_non_empty(
         source_df.get("tipo_parceria_convenio"),
@@ -121,6 +191,35 @@ def build_ba_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
 
     # A compilacao da BA nao traz um codigo de municipio confiavel.
     mapped["cod_municipio"] = pd.NA
+
+    for column in STANDARD_COLUMNS:
+        if column not in mapped.columns:
+            mapped[column] = pd.NA
+    return mapped[STANDARD_COLUMNS]
+
+
+def build_ba_payment_detail_frame(source_df: pd.DataFrame) -> pd.DataFrame:
+    data_pagamento = pd.to_datetime(source_df.get("Data do Pagamento"), errors="coerce", format="mixed")
+    ano = pd.Series(data_pagamento.dt.year, index=source_df.index, dtype="Int64").astype("string")
+    mes = pd.Series(data_pagamento.dt.month, index=source_df.index, dtype="Int64").astype("string")
+
+    mapped = pd.DataFrame(
+        {
+            "uf": "BA",
+            "origem": ORIGEM_ORCAMENTO_GERAL,
+            "ano": ano,
+            "valor_total": source_df.get("Valor do Pagamento"),
+            "cnpj": source_df.get("CPF/CNPJ"),
+            "nome_osc": source_df.get("Recebedor"),
+            "mes": mes,
+            "cod_municipio": pd.NA,
+            "municipio": pd.NA,
+            "objeto": first_non_empty(source_df.get("Unidade Orçamentária"), source_df.get("Órgão")),
+            "modalidade": first_non_empty(source_df.get("Nº do Empenho\r"), source_df.get("Nº do Empenho")),
+            "data_inicio": source_df.get("Data do Pagamento"),
+            "data_fim": pd.NA,
+        }
+    )
 
     for column in STANDARD_COLUMNS:
         if column not in mapped.columns:
@@ -170,12 +269,12 @@ def main() -> None:
 
     source_df = read_source(input_path) if input_path else read_default_sources(input_dir)
     mapped = build_ba_budget_frame(source_df)
-    normalized = normalize_preview(mapped, "BA", require_cnpj=False)
+    normalized = normalize_preview(mapped, "BA", require_cnpj=True)
 
     output_path = output_dir / default_output_name("BA", args.scope)
     pq.write_table(build_parquet_table(normalized), output_path, compression="snappy")
 
-    print(f"Entrada: {input_path or input_dir / 'despesas_*.xlsx'}")
+    print(f"Entrada: {input_path or input_dir / 'pagamentos_painel_*_detalhamento.csv'}")
     print(f"Saida: {output_path}")
     print(f"Linhas origem: {len(source_df)}")
     print(f"Linhas parquet: {len(normalized)}")

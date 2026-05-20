@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import gc
 from pathlib import Path
+import re
 import sys
 import zipfile
 
@@ -33,11 +34,12 @@ USECOLS = [
     "municipio_repasse_cod",
     "municipio_repasse_desc",
 ]
+DOCUMENTADOR_CHUNK_SIZE = 100_000
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Processa as despesas pagas do PR com foco em subvencoes e convenios de OSC para parquet."
+        description="Processa as despesas pagas do PR como despesas gerais para parquet."
     )
     add_scope_argument(parser)
     parser.add_argument(
@@ -109,6 +111,44 @@ def iter_source_chunks(input_dir: Path):
                     yield zip_paths, zip_path, chunk
 
 
+def documentador_dir(input_dir: Path) -> Path:
+    return input_dir / "documentador"
+
+
+def iter_documentador_paths(input_dir: Path) -> list[Path]:
+    base_dir = documentador_dir(input_dir)
+    if not base_dir.exists():
+        return []
+    return sorted(
+        path
+        for path in base_dir.rglob("*")
+        if path.is_file()
+        and path.suffix.lower() in {".csv", ".xlsx"}
+        and "pagamentos" in path.name.lower()
+        and not path.name.startswith("manifest_")
+        and not path.name.startswith("~$")
+    )
+
+
+def iter_documentador_chunks(input_dir: Path):
+    for path in iter_documentador_paths(input_dir):
+        suffix = path.suffix.lower()
+        if suffix == ".csv":
+            reader = pd.read_csv(
+                path,
+                sep=";",
+                dtype=str,
+                encoding="latin1",
+                low_memory=False,
+                chunksize=DOCUMENTADOR_CHUNK_SIZE,
+            )
+            for chunk in reader:
+                yield path, chunk
+        elif suffix == ".xlsx":
+            frame = pd.read_excel(path, dtype=str)
+            yield path, frame
+
+
 def build_focus_mask(source_df: pd.DataFrame) -> pd.Series:
     nome = clean_text(source_df.get("credor_nome")).fillna("")
     historico = clean_text(source_df.get("historico_pagamento")).fillna("")
@@ -138,7 +178,7 @@ def build_focus_mask(source_df: pd.DataFrame) -> pd.Series:
 
 
 def build_pr_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
-    filtered = source_df.loc[build_focus_mask(source_df)].copy()
+    filtered = source_df.copy()
     ano_data, mes = extract_year_month(filtered.get("data_pagamento"))
 
     mapped = pd.DataFrame(
@@ -165,6 +205,87 @@ def build_pr_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
     return mapped[STANDARD_COLUMNS]
 
 
+def norm_col(name: object) -> str:
+    text = str(name or "").strip().lower()
+    text = (
+        text.replace("ã", "a")
+        .replace("á", "a")
+        .replace("à", "a")
+        .replace("â", "a")
+        .replace("é", "e")
+        .replace("ê", "e")
+        .replace("í", "i")
+        .replace("ó", "o")
+        .replace("ô", "o")
+        .replace("õ", "o")
+        .replace("ú", "u")
+        .replace("ç", "c")
+    )
+    return re.sub(r"[^a-z0-9]+", "", text)
+
+
+def pick_column(frame: pd.DataFrame, *candidates: str) -> pd.Series:
+    lookup = {norm_col(column): column for column in frame.columns}
+    for candidate in candidates:
+        column = lookup.get(norm_col(candidate))
+        if column is not None:
+            return frame[column]
+    return pd.Series(pd.NA, index=frame.index, dtype="string")
+
+
+def normalize_pr_year(series: pd.Series | None) -> pd.Series:
+    cleaned = clean_text(series)
+    if cleaned.empty:
+        return cleaned
+
+    def normalize(value: object) -> object:
+        if pd.isna(value):
+            return pd.NA
+        text = re.sub(r"\D+", "", str(value))
+        if len(text) == 2:
+            return f"20{text}"
+        if len(text) == 4:
+            return text
+        return pd.NA
+
+    return cleaned.map(normalize).astype("string")
+
+
+def build_pr_documentador_frame(source_df: pd.DataFrame, source_path: Path) -> pd.DataFrame:
+    mapped = pd.DataFrame(
+        {
+            "uf": "PR",
+            "origem": ORIGEM_ORCAMENTO_GERAL,
+            "ano": normalize_pr_year(pick_column(source_df, "ano", "ANO")),
+            "valor_total": first_non_empty(pick_column(source_df, "PAGO"), pick_column(source_df, " Valor ", "Valor")),
+            "cnpj": first_non_empty(pick_column(source_df, "CNPJ/CPF"), pick_column(source_df, "CPF/CNPJ_Credor")),
+            "nome_osc": first_non_empty(pick_column(source_df, "DESCRIÇÃO CREDOR"), pick_column(source_df, "Descrição_Credor")),
+            "mes": first_non_empty(pick_column(source_df, "MÊS"), pick_column(source_df, "Mês")),
+            "cod_municipio": pd.NA,
+            "municipio": pd.NA,
+            "objeto": first_non_empty(
+                pick_column(source_df, "HISTORICO"),
+                pick_column(source_df, "Hitórico_Pagamento"),
+                pick_column(source_df, "Histórico_Empenho"),
+            ),
+            "modalidade": first_non_empty(
+                pick_column(source_df, "DESCRIÇÃO_ELEMENTO"),
+                pick_column(source_df, "Descrição_Elemento"),
+                pick_column(source_df, "ELEMENTO"),
+                pick_column(source_df, "Modalidade"),
+            ),
+            "data_inicio": first_non_empty(pick_column(source_df, "DATA_PGTO"), pick_column(source_df, "Data_Pagamento")),
+            "data_fim": pd.NA,
+        }
+    )
+
+    for column in STANDARD_COLUMNS:
+        if column not in mapped.columns:
+            mapped[column] = pd.NA
+    mapped["objeto"] = first_non_empty(mapped["objeto"], pd.Series(source_path.name, index=mapped.index, dtype="string"))
+    return mapped[STANDARD_COLUMNS]
+
+
 def main() -> None:
     args = parse_args()
     input_dir = Path(args.input_dir) if args.input_dir else default_input_dir(args.scope)
@@ -182,11 +303,34 @@ def main() -> None:
     total_source_rows = 0
     total_parquet_rows = 0
     seen_paths: list[Path] = []
+    documentador_paths = iter_documentador_paths(input_dir)
 
     try:
         for seen_paths, current_path, source_df in iter_source_chunks(input_dir):
             total_source_rows += len(source_df)
             mapped = build_pr_budget_frame(source_df)
+            normalized = normalize_preview(mapped, "PR", require_cnpj=True)
+            if normalized.empty:
+                del source_df
+                del mapped
+                gc.collect()
+                continue
+
+            table = build_parquet_table(normalized)
+            if writer is None:
+                writer = pq.ParquetWriter(temp_path, table.schema, compression="snappy")
+            writer.write_table(table)
+            total_parquet_rows += len(normalized)
+
+            del source_df
+            del mapped
+            del normalized
+            del table
+            gc.collect()
+
+        for current_path, source_df in iter_documentador_chunks(input_dir):
+            total_source_rows += len(source_df)
+            mapped = build_pr_documentador_frame(source_df, current_path)
             normalized = normalize_preview(mapped, "PR", require_cnpj=True)
             if normalized.empty:
                 del source_df
@@ -215,6 +359,7 @@ def main() -> None:
     temp_path.replace(output_path)
     print(f"Entrada: {input_dir}")
     print(f"Arquivos lidos: {len(seen_paths)}")
+    print(f"Arquivos documentador: {len(documentador_paths)}")
     print(f"Saida: {output_path}")
     print(f"Linhas origem: {total_source_rows}")
     print(f"Linhas parquet: {total_parquet_rows}")

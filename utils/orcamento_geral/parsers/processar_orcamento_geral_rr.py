@@ -44,7 +44,7 @@ LEGACY_PUBLIC_PATTERN = re.compile(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Processa a despesa detalhada de RR com foco em sinais de OSC."
+        description="Processa a despesa detalhada de RR como despesa geral estadual."
     )
     add_scope_argument(parser)
     parser.add_argument(
@@ -106,6 +106,12 @@ def first_non_empty(*series: pd.Series | None) -> pd.Series:
     return result
 
 
+def month_from_date(series: pd.Series | None) -> pd.Series:
+    if series is None:
+        return pd.Series(dtype="Int64")
+    return pd.to_datetime(series, dayfirst=True, errors="coerce").dt.month.astype("Int64")
+
+
 def collapse_exec_history(series: pd.Series | None) -> pd.Series:
     if series is None:
         return pd.Series(dtype="string")
@@ -139,8 +145,9 @@ def build_focus_mask(source_df: pd.DataFrame) -> pd.Series:
 
 
 def build_rr_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
-    filtered = source_df.loc[build_focus_mask(source_df)].copy()
+    filtered = source_df.copy()
     historico = first_non_empty(clean_text(filtered.get("historicoPed")), collapse_exec_history(filtered.get("despesaPorCredorExecucao")))
+    data_inicio = filtered.get("dataEmpenho")
 
     mapped = pd.DataFrame(
         {
@@ -150,13 +157,13 @@ def build_rr_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
             "valor_total": first_non_empty(filtered.get("totalPago"), filtered.get("totalLiquidado"), filtered.get("valorEmpenho")),
             "cnpj": filtered.get("cpfCnpj"),
             "nome_osc": filtered.get("razaoSocial"),
-            "mes": pd.NA,
-            "cod_municipio": pd.NA,
-            "municipio": pd.NA,
+            "mes": month_from_date(data_inicio),
+            "cod_municipio": "",
+            "municipio": "",
             "objeto": historico,
             "modalidade": first_non_empty(filtered.get("fonteRecurso"), filtered.get("naturezaDespesa")),
-            "data_inicio": filtered.get("dataEmpenho"),
-            "data_fim": pd.NA,
+            "data_inicio": data_inicio,
+            "data_fim": data_inicio,
         }
     )
 
@@ -214,7 +221,7 @@ def main() -> None:
     source_df, source_kind = read_source(input_path)
     if source_kind == "legacy_xlsx":
         mapped = build_rr_budget_frame_legacy(source_df)
-        normalized = normalize_preview(mapped, "RR", require_cnpj=False)
+        normalized = normalize_preview(mapped, "RR", require_cnpj=True)
     else:
         mapped = build_rr_budget_frame(source_df)
         normalized = normalize_preview(mapped, "RR", require_cnpj=True)

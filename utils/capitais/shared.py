@@ -137,7 +137,8 @@ def clean_document(series: pd.Series | None) -> pd.Series:
     if cleaned.empty:
         return cleaned
     digits = cleaned.str.replace(r"\D", "", regex=True)
-    return digits.mask(digits.eq("")).mask(digits.str.len().lt(11))
+    candidates = digits.where(digits.str.len().between(12, 14), pd.NA).str.zfill(14)
+    return candidates.where(candidates.map(is_valid_cnpj_value), pd.NA)
 
 
 def is_valid_cnpj_value(value: object) -> bool:
@@ -164,7 +165,8 @@ def valid_cnpj_digits(series: pd.Series | None) -> pd.Series:
     if cleaned.empty:
         return cleaned
     digits = cleaned.str.replace(r"\D", "", regex=True)
-    return digits.where(digits.map(is_valid_cnpj_value), pd.NA)
+    candidates = digits.where(digits.str.len().between(12, 14), pd.NA).str.zfill(14)
+    return candidates.where(candidates.map(is_valid_cnpj_value), pd.NA)
 
 
 def normalize_scientific_document(series: pd.Series | None) -> pd.Series:
@@ -1231,20 +1233,23 @@ def iter_json_batches(paths: list[Path], batch_size: int) -> Iterator[pd.DataFra
 
 def iter_csv_batches(config: CapitalConfig, paths: list[Path], batch_size: int) -> Iterator[pd.DataFrame]:
     for path in paths:
-        try:
-            reader = pd.read_csv(
-                path,
-                dtype=str,
-                sep=config.csv_sep,
-                encoding=config.csv_encoding,
-                skiprows=config.csv_skiprows,
-                chunksize=batch_size,
-                engine="python",
-                on_bad_lines="skip",
-            )
-            yield from reader
-        except Exception as exc:
-            print(f"Arquivo CSV ignorado por erro de leitura: {path.name} ({type(exc).__name__})")
+        for engine in ("c", "python"):
+            try:
+                reader = pd.read_csv(
+                    path,
+                    dtype=str,
+                    sep=config.csv_sep,
+                    encoding=config.csv_encoding,
+                    skiprows=config.csv_skiprows,
+                    chunksize=batch_size,
+                    engine=engine,
+                    on_bad_lines="skip",
+                )
+                yield from reader
+                break
+            except Exception as exc:
+                if engine == "python":
+                    print(f"Arquivo CSV ignorado por erro de leitura: {path.name} ({type(exc).__name__})")
 
 
 def iter_fortaleza_despesas_batches(paths: list[Path], batch_size: int) -> Iterator[pd.DataFrame]:
@@ -1401,7 +1406,12 @@ def write_capital_parquet(
         for source_df in iter_source_batches(config, source_paths, batch_size):
             total_source_rows += len(source_df)
             mapped = config.mapper(source_df, config)
-            normalized = normalize_preview(mapped, config.uf, require_cnpj=config.require_cnpj)
+            normalized = normalize_preview(
+                mapped,
+                config.uf,
+                require_cnpj=config.require_cnpj,
+                validate_cnpj_checksum=True,
+            )
             if normalized.empty:
                 del source_df
                 del mapped
@@ -1425,6 +1435,10 @@ def write_capital_parquet(
 
     if not temp_path.exists():
         raise RuntimeError(f"Nenhuma linha valida foi gerada para {config.municipio}.")
+
+    deduplicated = pq.read_table(temp_path).to_pandas().drop_duplicates(ignore_index=True)
+    pq.write_table(build_parquet_table(deduplicated), temp_path, compression="snappy")
+    total_parquet_rows = len(deduplicated)
 
     temp_path.replace(final_path)
     return final_path, total_source_rows, total_parquet_rows

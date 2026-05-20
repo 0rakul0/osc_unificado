@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import argparse
+import csv
 from pathlib import Path
 import re
 import sys
 
 import pandas as pd
+import polars as pl
 import pyarrow.parquet as pq
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from project_paths import BASES_CONVENIOS_DIR, ORCAMENTO_GERAL_PROCESSADA_DIR, cli_default
+from project_paths import BASES_CONVENIOS_DIR, BASES_ORCAMENTO_GERAL_DIR, ORCAMENTO_GERAL_PROCESSADA_DIR, cli_default
 from utils.common import STANDARD_COLUMNS
 from utils.convenios.unificador import build_parquet_table, normalize_preview
 
@@ -32,7 +34,7 @@ PRIVATE_COMPANY_PATTERN = re.compile(r"\bltda\b|\bme\b|\bepp\b|comerc|construt|e
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Processa a base legada de convenios e termos de fomento do Amapa com foco em OSC."
+        description="Processa despesas gerais oficiais do Amapa; se ausentes, usa a base legada de fomento."
     )
     parser.add_argument(
         "--input",
@@ -45,6 +47,10 @@ def parse_args() -> argparse.Namespace:
         help="Pasta de saida para o parquet final.",
     )
     return parser.parse_args()
+
+
+def default_general_input_dir() -> Path:
+    return BASES_ORCAMENTO_GERAL_DIR / "AP"
 
 
 def clean_text(series: pd.Series | None) -> pd.Series:
@@ -108,6 +114,78 @@ def read_source(path: Path) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True)
 
 
+def read_semicolon_csv(path: Path) -> pd.DataFrame:
+    return pl.read_csv(path, separator=";", infer_schema_length=0, encoding="utf8-lossy", ignore_errors=True).to_pandas()
+
+
+def parse_money_tokens(tokens: list[str], values_count: int = 4, tail_min: int = 8) -> tuple[list[str], int] | None:
+    def rec(index: int, values: list[str]) -> tuple[list[str], int] | None:
+        if len(values) == values_count:
+            if tail_min == 0 and index == len(tokens):
+                return values, index
+            if tail_min > 0 and index < len(tokens) and re.fullmatch(r"\d{4,}", tokens[index] or ""):
+                return values, index
+            return None
+        remaining_values = values_count - len(values)
+        for take in (1, 2):
+            if index + take > len(tokens):
+                continue
+            remaining_tokens = len(tokens) - (index + take)
+            if remaining_tokens < remaining_values - 1 + tail_min:
+                continue
+            value = tokens[index] if take == 1 else f"{tokens[index]},{tokens[index + 1]}"
+            if take == 2 and not re.fullmatch(r"\d{1,2}", tokens[index + 1] or ""):
+                continue
+            result = rec(index + take, values + [value])
+            if result is not None:
+                return result
+        return None
+
+    return rec(0, [])
+
+
+def read_legacy_comma_csv(path: Path) -> pd.DataFrame:
+    rows: list[dict[str, str]] = []
+    with path.open("r", encoding="utf-8", errors="replace", newline="") as file:
+        reader = csv.reader(file)
+        header = next(reader)
+        tail_min = max(0, len(header) - 21)
+        for parts in reader:
+            if len(parts) < len(header):
+                continue
+            prefix = parts[:17]
+            parsed_values = parse_money_tokens(parts[17:], tail_min=tail_min)
+            if parsed_values is None:
+                continue
+            money_values, after_money = parsed_values
+            tail = parts[17 + after_money :]
+            row_values = prefix + money_values + tail[:tail_min]
+            if len(row_values) != len(header):
+                continue
+            rows.append(dict(zip(header, row_values, strict=False)))
+    return pd.DataFrame(rows)
+
+
+def read_general_sources(input_dir: Path) -> pd.DataFrame:
+    frames: list[pd.DataFrame] = []
+    for path in sorted(input_dir.glob("DESPESAS*")) + sorted(input_dir.glob("Despesas*")) + sorted(input_dir.glob("Despesa_covid*")):
+        suffix = path.suffix.lower()
+        if suffix == ".csv":
+            first_line = path.read_bytes().splitlines()[0].decode("utf-8", errors="replace")
+            frame = read_semicolon_csv(path) if ";" in first_line else read_legacy_comma_csv(path)
+        elif suffix in {".xls", ".xlsx"}:
+            frame = pd.read_excel(path, dtype=str)
+        else:
+            continue
+        frame["_arquivo_origem"] = path.name
+        year_match = re.search(r"(20\d{2})", path.name)
+        frame["_ano_origem"] = year_match.group(1) if year_match else pd.NA
+        frames.append(frame)
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True)
+
+
 def infer_modalidade(frame: pd.DataFrame) -> pd.Series:
     sheet = clean_text(frame.get("__sheet__")).fillna("")
     numero = clean_text(frame.get("Convenio/")).combine_first(clean_text(frame.get("Termo de Fomento"))).fillna("")
@@ -159,20 +237,63 @@ def build_ap_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
     return mapped[STANDARD_COLUMNS]
 
 
+def build_ap_general_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
+    valor_total = first_non_empty(
+        source_df.get("VAL_PAGO"),
+        source_df.get("VALOR_PAGO"),
+        source_df.get("Valor Pago"),
+        source_df.get("VAL_LIQUIDADO"),
+        source_df.get("VALOR_LIQUIDO"),
+        source_df.get("Valor Liquidado"),
+        source_df.get("VAL_EMPENHADO"),
+        source_df.get("VALOR_EMPENHADO"),
+        source_df.get("Valor Empenhado"),
+    )
+    mapped = pd.DataFrame(
+        {
+            "uf": "AP",
+            "origem": ORIGEM_ORCAMENTO_GERAL,
+            "ano": first_non_empty(source_df.get("ANO"), source_df.get("Ano"), source_df.get("_ano_origem")),
+            "valor_total": valor_total,
+            "cnpj": first_non_empty(source_df.get("CPF_CNPJ"), source_df.get("CPF/CNPJ")),
+            "nome_osc": first_non_empty(source_df.get("NOME_CREDOR"), source_df.get("NOME DO CREDOR"), source_df.get("Unidade Gestora")),
+            "mes": first_non_empty(source_df.get("MES"), source_df.get("MÊS")),
+            "cod_municipio": pd.NA,
+            "municipio": pd.NA,
+            "objeto": first_non_empty(source_df.get("OBSERVACAO_EMPENHO"), source_df.get("DESCRICAO_PRODUTO")),
+            "modalidade": first_non_empty(source_df.get("NOME_ELEMENTO"), source_df.get("NOME_ITEM"), source_df.get("NOME_TIPO_LICITACAO")),
+            "data_inicio": first_non_empty(source_df.get("DATA_EMISSAO"), source_df.get("DATA EMISSÃO")),
+            "data_fim": pd.NA,
+        }
+    )
+
+    for column in STANDARD_COLUMNS:
+        if column not in mapped.columns:
+            mapped[column] = pd.NA
+    return mapped[STANDARD_COLUMNS]
+
+
 def main() -> None:
     args = parse_args()
     input_path = Path(args.input)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    source_df = read_source(input_path)
-    mapped = build_ap_budget_frame(source_df)
-    normalized = normalize_preview(mapped, "AP", require_cnpj=False)
+    general_df = read_general_sources(default_general_input_dir()) if args.input == str(BASES_CONVENIOS_DIR / "AP" / "TERMO DE FOMENTO.xlsx") else pd.DataFrame()
+    if not general_df.empty:
+        source_df = general_df
+        mapped = build_ap_general_budget_frame(source_df)
+        input_label = str(default_general_input_dir() / "DESPESAS*")
+    else:
+        source_df = read_source(input_path)
+        mapped = build_ap_budget_frame(source_df)
+        input_label = str(input_path)
+    normalized = normalize_preview(mapped, "AP", require_cnpj=True)
 
     output_path = output_dir / "AP.parquet"
     pq.write_table(build_parquet_table(normalized), output_path, compression="snappy")
 
-    print(f"Entrada: {input_path}")
+    print(f"Entrada: {input_label}")
     print(f"Saida: {output_path}")
     print(f"Linhas origem: {len(source_df)}")
     print(f"Linhas parquet: {len(normalized)}")

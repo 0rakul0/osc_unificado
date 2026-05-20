@@ -17,7 +17,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from project_paths import BASES_CONVENIOS_DIR, PROCESSADA_DIR, cli_default
 from utils import get_parser
-from utils.common import STANDARD_COLUMNS, clean_cnpj
+from utils.common import STANDARD_COLUMNS, clean_cnpj, clean_valid_cnpj
 
 
 ORIGEM_PADRAO = "convenios"
@@ -193,14 +193,20 @@ def has_cnpj_value(value: object) -> bool:
     return len(text) == 14
 
 
-def normalize_preview(preview_df: pd.DataFrame, uf: str, require_cnpj: bool = False) -> pd.DataFrame:
+def normalize_preview(
+    preview_df: pd.DataFrame,
+    uf: str,
+    require_cnpj: bool = False,
+    validate_cnpj_checksum: bool = False,
+) -> pd.DataFrame:
+    cnpj_cleaner = clean_valid_cnpj if validate_cnpj_checksum else clean_cnpj
     normalized = (
         preview_df.reindex(columns=STANDARD_COLUMNS)
         .assign(
             origem=lambda df: clean_required_text(df["origem"]).fillna(ORIGEM_PADRAO),
             ano=lambda df: clean_integer_like_text(df["ano"]),
             mes=lambda df: clean_integer_like_text(df["mes"]),
-            cnpj=lambda df: clean_cnpj(df["cnpj"]),
+            cnpj=lambda df: cnpj_cleaner(df["cnpj"]),
             valor_total=lambda df: clean_currency_text(df["valor_total"]),
         )
         .dropna(subset=["valor_total"])
@@ -211,6 +217,8 @@ def normalize_preview(preview_df: pd.DataFrame, uf: str, require_cnpj: bool = Fa
 
     if require_cnpj:
         normalized = normalized[normalized["cnpj"].map(has_cnpj_value)]
+
+    normalized = normalized.drop_duplicates(ignore_index=True)
 
     if normalized.empty:
         return pd.DataFrame(columns=STANDARD_COLUMNS).astype("string")

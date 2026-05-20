@@ -51,10 +51,17 @@ def main() -> None:
     last_page = int(first_payload.get("last_page") or 1)
 
     rows: list[dict[str, object]] = []
-    for page in range(1, last_page + 1):
+    # A API de RR pode responder "Informacoes nao encontradas" para paginas
+    # intermediarias e ainda assim retornar paginas posteriores validas.
+    for page in range(1, last_page + 3):
         response = requests.get(API_URL, params={"page": page}, timeout=180, verify=False)
         response.raise_for_status()
-        payload = response.json()["data"]
+        response_json = response.json()
+        payload = response_json.get("data")
+        if not isinstance(payload, dict):
+            print(f"Pagina {page}: sem dados ({response_json.get('message')})")
+            continue
+        last_page = max(last_page, int(payload.get("last_page") or page))
         for group in normalize_groups(payload.get("data")):
             unidade = group.get("indice")
             for item in group.get("dados") or []:
@@ -63,6 +70,12 @@ def main() -> None:
                 item["indice_grupo"] = unidade
                 item["pagina_origem"] = page
                 rows.append(item)
+
+    unique_rows: dict[tuple[object, object, object], dict[str, object]] = {}
+    for row in rows:
+        key = (row.get("numeroEmpenho"), row.get("cpfCnpj"), row.get("valorEmpenho"))
+        unique_rows[key] = row
+    rows = list(unique_rows.values())
 
     output_path = output_dir / "rr_despesa_detalhada.json"
     output_path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")

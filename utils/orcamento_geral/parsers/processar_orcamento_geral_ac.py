@@ -317,7 +317,7 @@ def main() -> None:
         mapped = build_ac_general_expense_frame(source_df)
     else:
         mapped = build_ac_budget_frame(source_df)
-    normalized = normalize_preview(mapped, "AC", require_cnpj=False)
+    normalized = normalize_preview(mapped, "AC", require_cnpj=True)
 
     output_path = output_dir / default_output_name("AC", args.scope)
     pq.write_table(build_parquet_table(normalized), output_path, compression="snappy")
