@@ -137,8 +137,7 @@ def clean_document(series: pd.Series | None) -> pd.Series:
     if cleaned.empty:
         return cleaned
     digits = cleaned.str.replace(r"\D", "", regex=True)
-    candidates = digits.where(digits.str.len().between(12, 14), pd.NA).str.zfill(14)
-    return candidates.where(candidates.map(is_valid_cnpj_value), pd.NA)
+    return digits.where(digits.str.len().between(12, 14), pd.NA).str.zfill(14)
 
 
 def is_valid_cnpj_value(value: object) -> bool:
@@ -1406,12 +1405,7 @@ def write_capital_parquet(
         for source_df in iter_source_batches(config, source_paths, batch_size):
             total_source_rows += len(source_df)
             mapped = config.mapper(source_df, config)
-            normalized = normalize_preview(
-                mapped,
-                config.uf,
-                require_cnpj=config.require_cnpj,
-                validate_cnpj_checksum=True,
-            )
+            normalized = normalize_preview(mapped, config.uf, require_cnpj=config.require_cnpj)
             if normalized.empty:
                 del source_df
                 del mapped
