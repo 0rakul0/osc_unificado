@@ -3,13 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
-import polars as pl
+import pandas as pd
+import pyarrow.parquet as pq
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from project_paths import CAPITAIS_PROCESSADA_DIR
+from utils.convenios.unificador import build_parquet_table
 
 
 CAPITAIS_COM_DESPESAS = {
@@ -29,23 +31,22 @@ def main() -> None:
             print(f"{standard_name}: sem parquet extra de despesas")
             continue
 
-        frames = []
+        frames: list[pd.DataFrame] = []
         if standard_path.exists():
-            frames.append(pl.read_parquet(standard_path))
-        frames.append(pl.read_parquet(expenses_path))
+            frames.append(pd.read_parquet(standard_path))
+        frames.append(pd.read_parquet(expenses_path))
 
-        columns = pl.read_parquet(expenses_path).columns
-        combined = pl.concat(frames, how="diagonal_relaxed").select(columns)
-        combined = combined.with_columns(
-            pl.when(pl.col("modalidade").is_in(["Despesa por credor", "Despesa paga por favorecido", "Empenho"]))
-            .then(pl.lit("despesa"))
-            .otherwise(pl.lit("convenio"))
-            .alias("modalidade")
+        columns = list(frames[-1].columns)
+        combined = pd.concat(frames, ignore_index=True, sort=False).reindex(columns=columns)
+        combined["modalidade"] = combined["modalidade"].where(
+            combined["modalidade"].isin(["despesa", "Despesa por credor", "Despesa paga por favorecido", "Empenho"]),
+            "convenio",
         )
-        combined = combined.unique(maintain_order=True)
-        combined.write_parquet(standard_path)
+        combined.loc[combined["modalidade"] != "convenio", "modalidade"] = "despesa"
+        combined = combined.drop_duplicates(ignore_index=True)
+        pq.write_table(build_parquet_table(combined), standard_path, compression="snappy")
         expenses_path.unlink()
-        print(f"{standard_name}: consolidado em {standard_path.name}, removido {expenses_path.name}, linhas={combined.height}")
+        print(f"{standard_name}: consolidado em {standard_path.name}, removido {expenses_path.name}, linhas={len(combined)}")
 
 
 if __name__ == "__main__":

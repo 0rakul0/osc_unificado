@@ -14,7 +14,12 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from project_paths import BASES_CONVENIOS_CAPITAIS_DIR, CAPITAIS_PROCESSADA_DIR, HISTORIA_DATA_DIR, ensure_parent_dir
-from utils.capitais.shared import first_non_empty, standardize_frame
+from utils.capitais.shared import (
+    ORIGEM_CAPITAIS_CONVENIOS,
+    ORIGEM_CAPITAIS_ORCAMENTO_GERAL,
+    first_non_empty,
+    standardize_frame,
+)
 from utils.convenios.unificador import build_parquet_table, normalize_preview
 
 
@@ -100,7 +105,9 @@ def keep_only_cnpj_rows(normalized: pd.DataFrame, modalidade: str) -> pd.DataFra
     filtered = normalized.copy()
     filtered["cnpj"] = filtered["cnpj"].map(normalize_document).astype("string")
     filtered = filtered.dropna(subset=["cnpj"]).copy()
-    filtered["origem"] = "capitais"
+    filtered["origem"] = (
+        ORIGEM_CAPITAIS_ORCAMENTO_GERAL if modalidade == "despesa" else ORIGEM_CAPITAIS_CONVENIOS
+    )
     filtered["modalidade"] = modalidade
     return filtered
 
@@ -112,7 +119,7 @@ def map_historical_chunk(frame: pd.DataFrame, lookup: dict[str, str]) -> pd.Data
         pd.DataFrame(
             {
                 "uf": pd.Series("PE", index=frame.index, dtype="string"),
-                "origem": pd.Series("capitais", index=frame.index, dtype="string"),
+                "origem": pd.Series(ORIGEM_CAPITAIS_ORCAMENTO_GERAL, index=frame.index, dtype="string"),
                 "ano": frame.get("ano_movimentacao"),
                 "valor_total": first_non_empty(frame.get("valor_pago"), frame.get("valor_liquidado"), frame.get("valor_empenhado")),
                 "cnpj": cnpj,
@@ -134,7 +141,7 @@ def map_recent_chunk(frame: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame(
             {
                 "uf": pd.Series("PE", index=frame.index, dtype="string"),
-                "origem": pd.Series("capitais", index=frame.index, dtype="string"),
+                "origem": pd.Series(ORIGEM_CAPITAIS_ORCAMENTO_GERAL, index=frame.index, dtype="string"),
                 "ano": frame.get("Ano"),
                 "valor_total": first_non_empty(frame.get("Pagamento"), frame.get("Liquidação"), frame.get("Empenhado")),
                 "cnpj": frame["CPF/CNPJ"].map(normalize_document).astype("string"),
@@ -238,7 +245,7 @@ def process_convenio_file(writer: pq.ParquetWriter | None) -> tuple[pq.ParquetWr
         pd.DataFrame(
             {
                 "uf": pd.Series("PE", index=frame.index, dtype="string"),
-                "origem": pd.Series("capitais", index=frame.index, dtype="string"),
+                "origem": pd.Series(ORIGEM_CAPITAIS_CONVENIOS, index=frame.index, dtype="string"),
                 "ano": pd.Series("2023", index=frame.index, dtype="string"),
                 "valor_total": valor_mes,
                 "cnpj": frame.get("CNPJ"),

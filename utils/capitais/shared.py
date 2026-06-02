@@ -24,7 +24,9 @@ from utils.convenios.unificador import build_parquet_table, normalize_preview
 from utils.orcamento_geral.registry import capital_parquet_name
 
 
-ORIGEM_CAPITAIS = "capitais"
+ORIGEM_CAPITAIS_CONVENIOS = "capitais_conv"
+ORIGEM_CAPITAIS_ORCAMENTO_GERAL = "capitais_og"
+ORIGEM_CAPITAIS = ORIGEM_CAPITAIS_CONVENIOS
 JSON_CHUNK_SIZE = 1024 * 1024
 
 
@@ -241,7 +243,7 @@ def map_rio_branco(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
         pd.DataFrame(
             {
                 "uf": city_series(frame, config.uf),
-                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "origem": city_series(frame, ORIGEM_CAPITAIS_ORCAMENTO_GERAL),
                 "ano": normalize_year_reference(frame.get("ano_referencia")),
                 "valor_total": first_non_empty(frame.get("pago_rs"), frame.get("liquidado_rs"), frame.get("empenhado_rs")),
                 "cnpj": frame.get("cpf/cpnj"),
@@ -263,7 +265,7 @@ def map_maceio(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
         pd.DataFrame(
             {
                 "uf": city_series(frame, config.uf),
-                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "origem": city_series(frame, ORIGEM_CAPITAIS_ORCAMENTO_GERAL),
                 "ano": frame.get("ano"),
                 "valor_total": first_non_empty(frame.get("valor_pago"), frame.get("valor_liquidado"), frame.get("valor_empenhado")),
                 "cnpj": frame.get("cnpj"),
@@ -288,7 +290,7 @@ def map_macapa(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
         pd.DataFrame(
             {
                 "uf": city_series(frame, config.uf),
-                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "origem": city_series(frame, ORIGEM_CAPITAIS_ORCAMENTO_GERAL),
                 "ano": ano,
                 "valor_total": clean_text(frame.get("valor")),
                 "cnpj": frame.get("cpfcnpj"),
@@ -310,7 +312,7 @@ def map_manaus(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
         pd.DataFrame(
             {
                 "uf": city_series(frame, config.uf),
-                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "origem": city_series(frame, ORIGEM_CAPITAIS_ORCAMENTO_GERAL),
                 "ano": frame.get("EmpAno"),
                 "valor_total": first_non_empty(frame.get("EmpTotalPago"), frame.get("EmpTotalLiquidado"), frame.get("EmpValorEmpenho")),
                 "cnpj": frame.get("EmpFornCpfCnpj"),
@@ -334,7 +336,7 @@ def map_salvador(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
         pd.DataFrame(
             {
                 "uf": city_series(frame, config.uf),
-                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "origem": city_series(frame, ORIGEM_CAPITAIS_ORCAMENTO_GERAL),
                 "ano": ano,
                 "valor_total": clean_wrapped_json_text(frame.get("Valor Liquidado")),
                 "cnpj": clean_wrapped_json_text(frame.get("Data do Lançamento")),
@@ -382,7 +384,7 @@ def map_fortaleza(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
             pd.DataFrame(
                 {
                     "uf": city_series(filtered, config.uf),
-                    "origem": city_series(filtered, ORIGEM_CAPITAIS),
+                    "origem": city_series(filtered, ORIGEM_CAPITAIS_ORCAMENTO_GERAL),
                     "ano": filtered.get("AnoTitulo"),
                     "valor_total": filtered.get("TOTAL NO PERIODO"),
                     "cnpj": valid_cnpj,
@@ -488,7 +490,7 @@ def map_belem_despesas(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFra
         pd.DataFrame(
             {
                 "uf": city_series(frame, config.uf),
-                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "origem": city_series(frame, ORIGEM_CAPITAIS_ORCAMENTO_GERAL),
                 "ano": ano,
                 "valor_total": frame.get("valor"),
                 "cnpj": pd.Series(pd.NA, index=frame.index, dtype="string"),
@@ -594,7 +596,7 @@ def map_campo_grande(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame
         pd.DataFrame(
             {
                 "uf": city_series(frame, config.uf),
-                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "origem": city_series(frame, ORIGEM_CAPITAIS_ORCAMENTO_GERAL),
                 "ano": ano,
                 "valor_total": first_non_empty(
                     frame.get("total_pago"),
@@ -687,7 +689,7 @@ def map_belo_horizonte_despesas(frame: pd.DataFrame, config: CapitalConfig) -> p
         pd.DataFrame(
             {
                 "uf": city_series(frame, config.uf),
-                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "origem": city_series(frame, ORIGEM_CAPITAIS_ORCAMENTO_GERAL),
                 "ano": first_non_empty(
                     frame.get("ano_op"),
                     frame.get("ANO_OP"),
@@ -726,7 +728,9 @@ def map_belo_horizonte_despesas(frame: pd.DataFrame, config: CapitalConfig) -> p
 
 
 def map_curitiba(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
-    data_inicio, data_fim = split_vigencia_series(frame.get("vigencia"))
+    legacy_inicio, legacy_fim = split_vigencia_series(frame.get("vigencia"))
+    data_inicio = first_non_empty(frame.get("vigencia_inicio"), legacy_inicio)
+    data_fim = first_non_empty(frame.get("vigencia_fim"), legacy_fim)
     ano, mes = extract_year_month(data_inicio)
     return standardize_frame(
         pd.DataFrame(
@@ -832,7 +836,7 @@ def map_boavista(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFrame:
         pd.DataFrame(
             {
                 "uf": city_series(frame, config.uf),
-                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "origem": city_series(frame, ORIGEM_CAPITAIS_ORCAMENTO_GERAL),
                 "ano": ano,
                 "valor_total": first_non_empty(
                     frame.get("PAGO"),
@@ -967,7 +971,7 @@ def map_florianopolis_despesas(frame: pd.DataFrame, config: CapitalConfig) -> pd
         pd.DataFrame(
             {
                 "uf": city_series(frame, config.uf),
-                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "origem": city_series(frame, ORIGEM_CAPITAIS_ORCAMENTO_GERAL),
                 "ano": first_non_empty(frame.get("ano"), frame.get("ano_consulta")),
                 "valor_total": first_non_empty(frame.get("valor_total"), frame.get("valor_pago"), frame.get("valor_liquidado"), frame.get("valor_empenhado")),
                 "cnpj": frame.get("cnpj"),
@@ -1045,7 +1049,7 @@ def map_teresina_despesas(frame: pd.DataFrame, config: CapitalConfig) -> pd.Data
         pd.DataFrame(
             {
                 "uf": city_series(frame, config.uf),
-                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "origem": city_series(frame, ORIGEM_CAPITAIS_ORCAMENTO_GERAL),
                 "ano": first_non_empty(frame.get("ano"), ano),
                 "valor_total": first_non_empty(frame.get("valor_pago"), frame.get("valor_empenho")),
                 "cnpj": frame.get("favorecido_cpf_cnpj"),
@@ -1098,7 +1102,7 @@ def map_palmas_despesas(frame: pd.DataFrame, config: CapitalConfig) -> pd.DataFr
         pd.DataFrame(
             {
                 "uf": city_series(frame, config.uf),
-                "origem": city_series(frame, ORIGEM_CAPITAIS),
+                "origem": city_series(frame, ORIGEM_CAPITAIS_ORCAMENTO_GERAL),
                 "ano": first_non_empty(frame.get("ano_consulta"), ano, frame.get("ano")),
                 "valor_total": first_non_empty(
                     frame.get("valor_total"),

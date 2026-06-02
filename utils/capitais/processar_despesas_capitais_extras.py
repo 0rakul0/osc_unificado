@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 import pandas as pd
-import polars as pl
+import pyarrow.parquet as pq
 import requests
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -16,6 +16,8 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from project_paths import BASES_CONVENIOS_CAPITAIS_DIR, CAPITAIS_PROCESSADA_DIR
+from utils.capitais.shared import ORIGEM_CAPITAIS_ORCAMENTO_GERAL
+from utils.convenios.unificador import build_parquet_table
 
 
 STANDARD_COLUMNS = [
@@ -85,13 +87,8 @@ def write_standard(frame: pd.DataFrame, path: Path) -> None:
         if column not in frame.columns:
             frame[column] = pd.NA
     frame = frame[STANDARD_COLUMNS].drop_duplicates().reset_index(drop=True)
-    table = pl.from_pandas(frame)
-    table = table.with_columns(
-        pl.col("valor_total").cast(pl.Decimal(20, 2), strict=False),
-        *[pl.col(column).cast(pl.String) for column in STANDARD_COLUMNS if column != "valor_total"],
-    )
     path.parent.mkdir(parents=True, exist_ok=True)
-    table.write_parquet(path)
+    pq.write_table(build_parquet_table(frame), path, compression="snappy")
 
 
 def process_curitiba() -> tuple[Path, int]:
@@ -111,7 +108,7 @@ def process_curitiba() -> tuple[Path, int]:
             mapped = pd.DataFrame(
                 {
                     "uf": "PR",
-                    "origem": "capitais",
+                    "origem": ORIGEM_CAPITAIS_ORCAMENTO_GERAL,
                     "ano": chunk["ANO_EMPENHO"],
                     "valor_total": chunk["valor_total"],
                     "cnpj": chunk["cnpj"],
@@ -148,7 +145,7 @@ def process_porto_alegre() -> tuple[Path, int]:
         mapped = pd.DataFrame(
             {
                 "uf": "RS",
-                "origem": "capitais",
+                "origem": ORIGEM_CAPITAIS_ORCAMENTO_GERAL,
                 "ano": raw["Exercício"],
                 "valor_total": raw["valor_total"],
                 "cnpj": pd.NA,
@@ -190,7 +187,7 @@ def process_aracaju() -> tuple[Path, int]:
     mapped = pd.DataFrame(
         {
             "uf": "SE",
-            "origem": "capitais",
+            "origem": ORIGEM_CAPITAIS_ORCAMENTO_GERAL,
             "ano": dates.dt.year.astype("Int64").astype("string"),
             "valor_total": table["valor_total"],
             "cnpj": table["cnpj"],
@@ -228,7 +225,7 @@ def process_cuiaba() -> tuple[Path, int]:
         mapped = pd.DataFrame(
             {
                 "uf": "MT",
-                "origem": "capitais",
+                "origem": ORIGEM_CAPITAIS_ORCAMENTO_GERAL,
                 "ano": year,
                 "valor_total": raw["valor_total"],
                 "cnpj": raw["cnpj"],
@@ -275,7 +272,7 @@ def process_goiania() -> tuple[Path, int]:
         mapped = pd.DataFrame(
             {
                 "uf": "GO",
-                "origem": "capitais",
+                "origem": ORIGEM_CAPITAIS_ORCAMENTO_GERAL,
                 "ano": dates.dt.year.astype("Int64").astype("string"),
                 "valor_total": raw["valor_total"],
                 "cnpj": raw["cnpj"],
@@ -297,13 +294,19 @@ def process_goiania() -> tuple[Path, int]:
 
 
 def main() -> None:
-    for output, rows in [
-        process_curitiba(),
-        process_porto_alegre(),
-        process_aracaju(),
-        process_cuiaba(),
-        process_goiania(),
-    ]:
+    processors = [
+        process_curitiba,
+        process_porto_alegre,
+        process_aracaju,
+        process_cuiaba,
+        process_goiania,
+    ]
+    for processor in processors:
+        try:
+            output, rows = processor()
+        except Exception as exc:
+            print(f"{processor.__name__}: ignorado por erro ({type(exc).__name__}: {exc})")
+            continue
         print(f"{output}: {rows} linhas")
 
 

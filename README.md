@@ -59,7 +59,7 @@ Todos os parquets seguem este schema:
 Regras gerais atualmente aplicadas:
 
 - `valor_total` e obrigatorio para todas as UFs.
-- `origem` identifica de qual trilha o registro veio. A carga estadual usa `convenios` e a base federal do governo usa `convenios_federal`.
+- `origem` identifica de qual trilha o registro veio. A carga estadual usa `convenios`, a base federal usa `convenios_federal`, e as capitais usam `capitais_conv` para convenios e `capitais_og` para orcamento geral.
 - `valor_total` e normalizado para texto numerico consistente, aceitando tanto `1234.56` quanto `1234,56` nas fontes.
 - no parquet final, `valor_total` e gravado como decimal exato com 2 casas, evitando erro de ponto flutuante.
 - na consolidacao bruta, `cnpj` e obrigatorio apenas para `RJ`.

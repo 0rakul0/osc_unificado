@@ -7,12 +7,14 @@ import unicodedata
 from pathlib import Path
 
 import polars as pl
+import pyarrow.parquet as pq
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from project_paths import CAPITAIS_PROCESSADA_DIR, GOVERNO_FEDERAL_DIR
+from utils.convenios.unificador import build_parquet_table
 
 
 CAPITAIS_DIR = CAPITAIS_PROCESSADA_DIR
@@ -144,7 +146,7 @@ def enrich_capital(capital: str, uf: str, write: bool) -> dict[str, object]:
             .with_columns(pl.coalesce(["cnpj", "cnpj_governo"]).alias("cnpj"))
             .drop("_row_id", "cnpj_governo")
         )
-        enriched.write_parquet(capital_path)
+        pq.write_table(build_parquet_table(enriched.to_pandas()), capital_path, compression="snappy")
         frame_after = enriched
     else:
         frame_after = frame

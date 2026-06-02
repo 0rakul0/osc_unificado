@@ -54,19 +54,21 @@ def main() -> None:
     frame = pd.read_html(html_path, flavor="lxml", extract_links="all")[0]
     normalized = pd.DataFrame(
         {
-            "orgao_gestor": frame.iloc[:, 0].map(tuple_text),
-            "termo_ajuste": frame.iloc[:, 1].map(tuple_text),
-            "siafi_transfereg_sit": frame.iloc[:, 2].map(tuple_text),
-            "numero": frame.iloc[:, 3].map(tuple_text),
-            "ano": frame.iloc[:, 4].map(tuple_text),
-            "objeto": frame.iloc[:, 5].map(tuple_text),
-            "valor_concedente": frame.iloc[:, 6].map(tuple_text),
-            "valor_contrapartida": frame.iloc[:, 7].map(tuple_text),
-            "valor_total": frame.iloc[:, 8].map(tuple_text),
-            "vigencia": frame.iloc[:, 9].map(tuple_text),
-            "fiscal": frame.iloc[:, 10].map(tuple_text),
-            "contrato_texto": frame.iloc[:, 11].map(tuple_text),
-            "contrato_url": frame.iloc[:, 11].map(tuple_link),
+            "orgao_repassador": frame.iloc[:, 0].map(tuple_text),
+            "orgao_gestor": frame.iloc[:, 1].map(tuple_text),
+            "termo_ajuste": frame.iloc[:, 2].map(tuple_text),
+            "siafi_transfereg_sit": frame.iloc[:, 3].map(tuple_text),
+            "numero": frame.iloc[:, 4].map(tuple_text),
+            "ano": frame.iloc[:, 5].map(tuple_text),
+            "objeto": frame.iloc[:, 6].map(tuple_text),
+            "valor_concedente": frame.iloc[:, 7].map(tuple_text),
+            "valor_contrapartida": frame.iloc[:, 8].map(tuple_text),
+            "valor_total": frame.iloc[:, 9].map(tuple_text),
+            "vigencia_inicio": frame.iloc[:, 10].map(tuple_text),
+            "vigencia_fim": frame.iloc[:, 11].map(tuple_text),
+            "fiscal": frame.iloc[:, 12].map(tuple_text),
+            "contrato_texto": frame.iloc[:, 13].map(tuple_text),
+            "contrato_url": frame.iloc[:, 13].map(tuple_link),
         }
     )
 
