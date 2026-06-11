@@ -24,7 +24,7 @@ from utils.common import STANDARD_COLUMNS
 from utils.orcamento_geral.paths import add_scope_argument, default_output_name, uf_raw_dir
 
 
-ORIGEM_ORCAMENTO_GERAL = "orcamento_geral"
+ORIGEM_ORCAMENTO_GERAL = "ESTADO_ORCAMENTO_GERAL"
 PORTAL_PAGE_URL = "https://consultas.transparencia.mt.gov.br/dados_abertos_consultas/despesa/"
 DOWNLOAD_URL_TEMPLATE = "https://consultas.transparencia.mt.gov.br/dados_abertos/despesa/Despesa_{year}.csv"
 USER_AGENT = (

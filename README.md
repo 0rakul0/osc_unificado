@@ -59,7 +59,7 @@ Todos os parquets seguem este schema:
 Regras gerais atualmente aplicadas:
 
 - `valor_total` e obrigatorio para todas as UFs.
-- `origem` identifica de qual trilha o registro veio. A carga estadual usa `convenios`, a base federal usa `convenios_federal`, e as capitais usam `capitais_conv` para convenios e `capitais_og` para orcamento geral.
+- `origem` identifica de qual trilha o registro veio. A carga estadual usa `ESTADO_CONVENIOS` para convenios estaduais, `ESTADO_ORCAMENTO_GERAL` para orcamento geral estadual, `CAPITAIS_CONVENIOS` para convenios municipais e `CAPITAIS_ORCAMENTO_GERAL` para orcamento geral municipal.
 - `valor_total` e normalizado para texto numerico consistente, aceitando tanto `1234.56` quanto `1234,56` nas fontes.
 - no parquet final, `valor_total` e gravado como decimal exato com 2 casas, evitando erro de ponto flutuante.
 - na consolidacao bruta, `cnpj` e obrigatorio apenas para `RJ`.
@@ -214,7 +214,7 @@ O que ele faz:
 - escolhe o parser em `utils/convenios/parsers/<UF>.py`
 - renomeia colunas para o schema padrao
 - deriva `ano` e `mes` a partir de datas quando necessario
-- preenche `origem = convenios` para a carga estadual, salvo quando um parser informar outro valor
+- preenche `origem = ESTADO_CONVENIOS` para a carga estadual, salvo quando um parser informar outro valor
 - filtra linhas sem `valor_total`
 - grava `valor_total` como decimal exato no parquet
 - grava um parquet final por UF
@@ -275,13 +275,13 @@ Regras de match:
 - primeiro por `cnpj`
 - depois por `nome_osc` normalizado
 - o preenchimento so acontece quando o valor de origem e univoco para aquela chave
-- quando `--append-new-rows` e usado, linhas que so existem na base federal podem ser anexadas ao parquet da UF com `origem = convenios_federal`
+- quando `--append-new-rows` e usado, linhas que so existem na base federal podem ser anexadas ao parquet da UF com `origem = ESTADO_CONVENIOS`
 
 ### 2.1. Separacao da base federal em parquets por UF
 
 Script: [utils/convenios/separar_governo_federal.py](D:/github/osc_unificado/utils/convenios/separar_governo_federal.py)
 
-Gera a pasta `governo_federal/` com um `.parquet` por UF, preservando o schema final e marcando `origem = convenios_federal`.
+Gera a pasta `governo_federal/` com um `.parquet` por UF, preservando o schema final e marcando `origem = ESTADO_CONVENIOS`.
 
 Comando basico:
 

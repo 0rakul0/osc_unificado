@@ -31,7 +31,7 @@ VW_TOP_ENTIDADES = DB_VIEWS.top_entidades
 VW_SERIE_ANUAL = DB_VIEWS.serie_anual
 VW_ALERTAS_QUALIDADE = DB_VIEWS.alertas_qualidade
 
-ORIGEM_PADRAO = "convenios"
+ORIGEM_PADRAO = "ESTADO_CONVENIOS"
 NULL_TOKENS = {"", "nan", "none", "null", "nat", "<na>"}
 MONEY_QUANTUM = Decimal("0.01")
 
@@ -619,8 +619,8 @@ def export_to_sqlite(
 
     conn = sqlite3.connect(output_path)
     try:
-        conn.execute("PRAGMA journal_mode=DELETE;")
-        conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("PRAGMA journal_mode=OFF;")
+        conn.execute("PRAGMA synchronous=OFF;")
         conn.execute("PRAGMA temp_store=MEMORY;")
 
         create_base_tables(conn)
@@ -654,7 +654,6 @@ def export_to_sqlite(
         create_indexes(conn)
         create_views(conn)
         conn.commit()
-        conn.execute("VACUUM;")
     finally:
         conn.close()
 

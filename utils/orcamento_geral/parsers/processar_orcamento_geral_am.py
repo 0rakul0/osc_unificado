@@ -17,7 +17,7 @@ from utils.common import STANDARD_COLUMNS
 from utils.convenios.unificador import build_parquet_table, normalize_preview
 
 
-ORIGEM_ORCAMENTO_GERAL = "orcamento_geral"
+ORIGEM_ORCAMENTO_GERAL = "ESTADO_ORCAMENTO_GERAL"
 OSC_NAME_PATTERN = re.compile(
     r"associ|instit|fundac|museu|lar |casa |obra social|pestalozzi|agencia amazonense de desenvolvimento cultural|grupo de apoio|fazenda da esperanca|rede amazonica",
     re.IGNORECASE,

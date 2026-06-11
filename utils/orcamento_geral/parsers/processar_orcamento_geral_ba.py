@@ -18,7 +18,7 @@ from utils.common import STANDARD_COLUMNS
 from utils.orcamento_geral.paths import add_scope_argument, default_output_name, uf_raw_dir
 
 
-ORIGEM_ORCAMENTO_GERAL = "orcamento_geral"
+ORIGEM_ORCAMENTO_GERAL = "ESTADO_ORCAMENTO_GERAL"
 
 
 def parse_args() -> argparse.Namespace:

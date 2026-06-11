@@ -8,7 +8,7 @@ import pandas as pd
 from .common import ParserConfig, WorkbookParser, parse_dates
 
 
-ORIGEM_GOVERNO_FEDERAL = "convenios_federal"
+ORIGEM_GOVERNO_FEDERAL = "ESTADO_CONVENIOS"
 GOV_CONVENIOS_MAPPINGS = {
     "CÓDIGO CONVENENTE": "cnpj",
     "NOME CONVENENTE": "nome_osc",

@@ -20,7 +20,7 @@ from utils import get_parser
 from utils.common import STANDARD_COLUMNS, clean_cnpj, clean_valid_cnpj
 
 
-ORIGEM_PADRAO = "convenios"
+ORIGEM_PADRAO = "ESTADO_CONVENIOS"
 PARQUET_MONEY_PRECISION = 20
 PARQUET_MONEY_SCALE = 2
 PARQUET_SCHEMA = pa.schema(

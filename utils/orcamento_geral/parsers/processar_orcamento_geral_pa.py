@@ -21,7 +21,7 @@ from utils.common import STANDARD_COLUMNS, clean_document, normalize_name
 from utils.orcamento_geral.paths import add_scope_argument, default_output_name, uf_raw_dir
 
 
-ORIGEM_ORCAMENTO_GERAL = "orcamento_geral"
+ORIGEM_ORCAMENTO_GERAL = "ESTADO_ORCAMENTO_GERAL"
 DETAIL_URL = "https://api-notas-empenho.sistemas.pa.gov.br/notas-empenho/detalhe"
 THREAD_LOCAL = threading.local()
 ENTITY_LIKE_PATTERN = re.compile(

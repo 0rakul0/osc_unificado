@@ -20,7 +20,7 @@ from utils.common import STANDARD_COLUMNS, clean_cnpj
 from utils.gov_convenios import ORIGEM_GOVERNO_FEDERAL, build_gov_convenios_parser
 
 
-ORIGEM_PADRAO = "convenios"
+ORIGEM_PADRAO = "ESTADO_CONVENIOS"
 FIELDS_TO_ENRICH = [
     "cnpj",
     "nome_osc",

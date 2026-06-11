@@ -19,7 +19,7 @@ from utils.common import STANDARD_COLUMNS
 from utils.convenios.unificador import build_parquet_table, normalize_preview
 
 
-ORIGEM_ORCAMENTO_GERAL = "orcamento_geral"
+ORIGEM_ORCAMENTO_GERAL = "ESTADO_ORCAMENTO_GERAL"
 TARGET_SHEETS = ("CONVÊNIOS ", "TERMO DE FOMENTO", "DIÁRIO 2024-2025")
 OSC_NAME_PATTERN = re.compile(
     r"associ|instit|fundac|casa |lar |federa|obra social|museu|pestalozzi|hospital de amor|ministerio betel|amazonia",

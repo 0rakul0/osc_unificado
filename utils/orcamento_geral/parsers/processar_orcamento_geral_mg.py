@@ -18,7 +18,7 @@ from utils.convenios.unificador import build_parquet_table, normalize_preview
 from utils.orcamento_geral.paths import add_scope_argument, default_output_name, uf_raw_dir
 
 
-ORIGEM_ORCAMENTO_GERAL = "orcamento_geral"
+ORIGEM_ORCAMENTO_GERAL = "ESTADO_ORCAMENTO_GERAL"
 CHUNK_SIZE = 200_000
 USECOLS = [
     "ano_particao",

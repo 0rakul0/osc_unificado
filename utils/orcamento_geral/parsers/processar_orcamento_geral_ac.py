@@ -20,7 +20,7 @@ from utils.convenios.unificador import build_parquet_table, normalize_preview
 from utils.orcamento_geral.paths import add_scope_argument, default_output_name, uf_raw_dir
 
 
-ORIGEM_ORCAMENTO_GERAL = "orcamento_geral"
+ORIGEM_ORCAMENTO_GERAL = "ESTADO_ORCAMENTO_GERAL"
 PUBLIC_NAME_PATTERN = re.compile(
     r"governo do estado|secretaria|tribunal|departamento|defensoria|pol[ií]cia|corpo de bombeiro|servi[cç]o de [áa]gua|estado do acre|funda[cç][aã]o de cultura elias mansour|funda[cç][aã]o de amparo a pesquisa|instituto de administra[cç][aã]o penitenci",
     re.IGNORECASE,

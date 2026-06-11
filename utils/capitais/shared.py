@@ -24,8 +24,8 @@ from utils.convenios.unificador import build_parquet_table, normalize_preview
 from utils.orcamento_geral.registry import capital_parquet_name
 
 
-ORIGEM_CAPITAIS_CONVENIOS = "capitais_conv"
-ORIGEM_CAPITAIS_ORCAMENTO_GERAL = "capitais_og"
+ORIGEM_CAPITAIS_CONVENIOS = "CAPITAIS_CONVENIOS"
+ORIGEM_CAPITAIS_ORCAMENTO_GERAL = "CAPITAIS_ORCAMENTO_GERAL"
 ORIGEM_CAPITAIS = ORIGEM_CAPITAIS_CONVENIOS
 JSON_CHUNK_SIZE = 1024 * 1024
 

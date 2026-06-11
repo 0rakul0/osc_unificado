@@ -35,7 +35,7 @@ STANDARD_COLUMNS = [
     "data_inicio",
     "data_fim",
 ]
-ORIGEM_PADRAO = "convenios"
+ORIGEM_PADRAO = "ESTADO_CONVENIOS"
 NULL_TOKENS = {"", "nan", "none", "null", "nat", "<na>"}
 QUALITY_COLUMNS = [
     "cnpj",
