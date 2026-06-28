@@ -1,6 +1,0 @@
-arquivo,linhas_atuais,cnpj_nulo_ou_vazio,cnpj_tamanho_invalido,cnpj_checksum_invalido_preservado,linhas_removidas_sem_cnpj_valido,observacao
-AC.parquet,933732,0,0,37,0,CNPJ numerico de 14 digitos preservado como informado pela fonte; checksum invalido fica como alerta de qualidade.
-ES.parquet,127367,0,0,461,0,CNPJ numerico de 14 digitos preservado como informado pela fonte; checksum invalido fica como alerta de qualidade.
-PB.parquet,1782928,0,0,5452,0,CNPJ numerico de 14 digitos preservado como informado pela fonte; checksum invalido fica como alerta de qualidade.
-PR.parquet,2466867,0,0,25,0,CNPJ numerico de 14 digitos preservado como informado pela fonte; checksum invalido fica como alerta de qualidade.
-SP.parquet,3823266,0,0,261,0,CNPJ numerico de 14 digitos preservado como informado pela fonte; checksum invalido fica como alerta de qualidade.

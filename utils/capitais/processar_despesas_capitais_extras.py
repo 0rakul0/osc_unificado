@@ -102,9 +102,9 @@ def process_curitiba() -> tuple[Path, int]:
             chunk = chunk[chunk["ANO_EMPENHO"].str.match(r"^\d{4}$", na=False)].copy()
             chunk["cnpj"] = chunk["CPF_CNPJ"].map(only_cnpj)
             chunk = chunk.dropna(subset=["cnpj"]).copy()
-            value = chunk["VL_PAGO"].map(parse_money)
-            fallback = chunk["VL_LIQUIDADO"].map(parse_money)
-            chunk["valor_total"] = value.where(value.ne(0), fallback)
+            paid = chunk["VL_PAGO"].map(parse_money)
+            liquidated = chunk["VL_LIQUIDADO"].map(parse_money)
+            chunk["valor_total"] = liquidated.where(liquidated.ne(0), paid)
             mapped = pd.DataFrame(
                 {
                     "uf": "PR",
@@ -181,7 +181,7 @@ def process_aracaju() -> tuple[Path, int]:
     paid = table["Pago"].map(parse_money)
     liquidated = table["Liquidado"].map(parse_money)
     committed = table["Empenhado"].map(parse_money)
-    table["valor_total"] = paid.where(paid.ne(0), liquidated.where(liquidated.ne(0), committed))
+    table["valor_total"] = liquidated.where(liquidated.ne(0), committed.where(committed.ne(0), paid))
     dates = pd.to_datetime(table["Data"], errors="coerce", dayfirst=True)
 
     mapped = pd.DataFrame(
@@ -221,7 +221,7 @@ def process_cuiaba() -> tuple[Path, int]:
         paid = raw["DespesaPagamento"].map(parse_money)
         liquidated = raw["DespesaLiquidacao"].map(parse_money)
         committed = raw["DespesaEmpenho"].map(parse_money)
-        raw["valor_total"] = paid.where(paid.ne(0), liquidated.where(liquidated.ne(0), committed))
+        raw["valor_total"] = liquidated.where(liquidated.ne(0), committed.where(committed.ne(0), paid))
         mapped = pd.DataFrame(
             {
                 "uf": "MT",
@@ -267,7 +267,7 @@ def process_goiania() -> tuple[Path, int]:
         paid = raw["VlPago"].map(parse_money)
         liquidated = raw["VlLiquidado"].map(parse_money)
         committed = raw["VlEmpenhado"].map(parse_money)
-        raw["valor_total"] = paid.where(paid.ne(0), liquidated.where(liquidated.ne(0), committed))
+        raw["valor_total"] = liquidated.where(liquidated.ne(0), committed.where(committed.ne(0), paid))
         dates = pd.to_datetime(raw["DataEmpenho"], errors="coerce", dayfirst=True)
         mapped = pd.DataFrame(
             {

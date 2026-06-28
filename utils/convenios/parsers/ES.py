@@ -115,9 +115,12 @@ class ESWorkbookParser(WorkbookParser):
         working = raw.copy()
         working["uf"] = "ES"
         working["ano"] = working.get("Ano")
-        # `valor_total` deve refletir apenas o valor bruto escolhido da fonte.
-        # O enriquecimento nao pode completar nem recalcular esse campo.
-        working["valor_total"] = working.get("ValorPago")
+        # `valor_total` deve refletir o melhor financeiro publicado na execucao.
+        # Prioriza liquidado; sem ele, cai para pago.
+        working["valor_total"] = (
+            working.get("ValorLiquidado", pd.Series(pd.NA, index=working.index))
+            .combine_first(working.get("ValorPago", pd.Series(pd.NA, index=working.index)))
+        )
         working["cnpj"] = working.get("CpfCnpjNis")
         working["nome_osc"] = working.get("Favorecido")
         working["objeto"] = (

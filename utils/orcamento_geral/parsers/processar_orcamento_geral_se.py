@@ -92,10 +92,10 @@ def iter_source_rows(path: Path) -> list[dict[str, object]]:
                 values[index_by_name["_ano"]] if "_ano" in index_by_name else None,
             ),
             "valor_total": first_non_empty(
-                values[index_by_name["vlTotalPagoEmpenho"]] if "vlTotalPagoEmpenho" in index_by_name else None,
                 values[index_by_name["vlTotalLiquidadoEmpenho"]] if "vlTotalLiquidadoEmpenho" in index_by_name else None,
                 values[index_by_name["vlOriginalEmpenho"]] if "vlOriginalEmpenho" in index_by_name else None,
                 values[index_by_name["vlSolicEmpenho"]] if "vlSolicEmpenho" in index_by_name else None,
+                values[index_by_name["vlTotalPagoEmpenho"]] if "vlTotalPagoEmpenho" in index_by_name else None,
             ),
             "cnpj": cnpj,
             "nome_osc": nome_osc,

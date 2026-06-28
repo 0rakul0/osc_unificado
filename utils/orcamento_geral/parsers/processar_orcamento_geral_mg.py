@@ -132,31 +132,32 @@ def build_focus_mask(source_df: pd.DataFrame) -> pd.Series:
 
 
 def build_mg_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
-    filtered = source_df.loc[build_focus_mask(source_df)].copy()
-    ano_data, mes = extract_year_month(filtered.get("data_formatada"))
+    elemento = clean_text(source_df.get("nome_elemento_despesa")).fillna("")
+    source_df = source_df.loc[~elemento.str.contains("pessoal", case=False, regex=False, na=False)].copy()
+    ano_data, mes = extract_year_month(source_df.get("data_formatada"))
 
     mapped = pd.DataFrame(
         {
             "uf": "MG",
             "origem": ORIGEM_ORCAMENTO_GERAL,
-            "ano": clean_text(filtered.get("ano_particao")).combine_first(ano_data),
+            "ano": clean_text(source_df.get("ano_particao")).combine_first(ano_data),
             "valor_total": first_non_empty(
-                filtered.get("vr_pago"),
-                filtered.get("vr_liquidado"),
-                filtered.get("vr_empenhado"),
+                source_df.get("vr_liquidado"),
+                source_df.get("vr_empenhado"),
+                source_df.get("vr_pago"),
             ),
-            "cnpj": filtered.get("documento_favorecido"),
-            "nome_osc": filtered.get("nome_favorecido"),
+            "cnpj": source_df.get("documento_favorecido"),
+            "nome_osc": source_df.get("nome_favorecido"),
             "mes": mes,
             "cod_municipio": pd.NA,
             "municipio": pd.NA,
-            "objeto": first_non_empty(filtered.get("nome_item_despesa"), filtered.get("nome_elemento_despesa")),
+            "objeto": first_non_empty(source_df.get("nome_item_despesa"), source_df.get("nome_elemento_despesa")),
             "modalidade": first_non_empty(
-                filtered.get("nome_modalidade_aplic"),
-                filtered.get("nome_elemento_despesa"),
-                filtered.get("nome_grupo"),
+                source_df.get("nome_modalidade_aplic"),
+                source_df.get("nome_elemento_despesa"),
+                source_df.get("nome_grupo"),
             ),
-            "data_inicio": filtered.get("data_formatada"),
+            "data_inicio": source_df.get("data_formatada"),
             "data_fim": pd.NA,
         }
     )
@@ -190,6 +191,9 @@ def main() -> None:
             total_source_rows += len(source_df)
             mapped = build_mg_budget_frame(source_df)
             normalized = normalize_preview(mapped, "MG", require_cnpj=True)
+            normalized = normalized[
+                pd.to_numeric(normalized["valor_total"], errors="coerce").fillna(0) > 0
+            ]
             if normalized.empty:
                 del source_df
                 del mapped

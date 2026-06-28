@@ -239,15 +239,15 @@ def build_ap_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
 
 def build_ap_general_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
     valor_total = first_non_empty(
-        source_df.get("VAL_PAGO"),
-        source_df.get("VALOR_PAGO"),
-        source_df.get("Valor Pago"),
         source_df.get("VAL_LIQUIDADO"),
         source_df.get("VALOR_LIQUIDO"),
         source_df.get("Valor Liquidado"),
         source_df.get("VAL_EMPENHADO"),
         source_df.get("VALOR_EMPENHADO"),
         source_df.get("Valor Empenhado"),
+        source_df.get("VAL_PAGO"),
+        source_df.get("VALOR_PAGO"),
+        source_df.get("Valor Pago"),
     )
     mapped = pd.DataFrame(
         {

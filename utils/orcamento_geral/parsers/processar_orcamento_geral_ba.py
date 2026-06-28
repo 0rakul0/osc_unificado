@@ -114,9 +114,9 @@ def iter_general_expense_rows(path: Path) -> list[dict[str, object]]:
                 "origem": ORIGEM_ORCAMENTO_GERAL,
                 "ano": first_non_empty_value(get(values, "ANO_EXERCICIO")),
                 "valor_total": first_non_empty_value(
-                    get(values, "VAL_PAGO"),
                     get(values, "VAL_LIQUIDADO_TOTAL"),
                     get(values, "VAL_EMPENHADO_TOTAL"),
+                    get(values, "VAL_PAGO"),
                 ),
                 "cnpj": pd.NA,
                 "nome_osc": first_non_empty_value(get(values, "NOM_UNIDADE_GESTORA"), get(values, "NOM_ORGAO_ORCAMENTO")),
@@ -234,9 +234,9 @@ def build_ba_general_expense_frame(source_df: pd.DataFrame) -> pd.DataFrame:
             "origem": ORIGEM_ORCAMENTO_GERAL,
             "ano": source_df.get("ANO_EXERCICIO"),
             "valor_total": first_non_empty(
-                source_df.get("VAL_PAGO"),
                 source_df.get("VAL_LIQUIDADO_TOTAL"),
                 source_df.get("VAL_EMPENHADO_TOTAL"),
+                source_df.get("VAL_PAGO"),
             ),
             "cnpj": pd.NA,
             "nome_osc": first_non_empty(source_df.get("NOM_UNIDADE_GESTORA"), source_df.get("NOM_ORGAO_ORCAMENTO")),

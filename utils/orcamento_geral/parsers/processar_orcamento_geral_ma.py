@@ -149,7 +149,9 @@ def build_legacy_focus_mask(source_df: pd.DataFrame) -> pd.Series:
 
 
 def build_ma_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
-    filtered = source_df.loc[build_focus_mask(source_df)].copy()
+    filtered = source_df[clean_text(source_df.get("fase")).str.upper() == "PAGAMENTO"].copy()
+    elemento = clean_text(filtered.get("nome_elemento")).fillna("")
+    filtered = filtered.loc[~elemento.str.contains("pessoal", case=False, regex=False, na=False)].copy()
 
     mapped = pd.DataFrame(
         {

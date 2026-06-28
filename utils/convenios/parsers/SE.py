@@ -36,13 +36,13 @@ class SEWorkbookParser(WorkbookParser):
     def standardize(self, df: pd.DataFrame, workbook_path: Path, sheet_name: str) -> pd.DataFrame:
         standardized = super().standardize(df, workbook_path, sheet_name)
 
-        # Prefer the original committed amount, then fall back to requested and execution totals.
+        # Prioriza o liquidado; sem ele, cai para valores totalizadores/originais e por ultimo pago.
         standardized["valor_total"] = first_non_empty(
             df,
             [
+                "vlTotalLiquidadoEmpenho",
                 "vlOriginalEmpenho",
                 "vlSolicEmpenho",
-                "vlTotalLiquidadoEmpenho",
                 "vlTotalPagoEmpenho",
             ],
         )

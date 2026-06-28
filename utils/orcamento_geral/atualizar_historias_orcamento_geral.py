@@ -52,10 +52,21 @@ UPDATE_NOTES: dict[str, list[str]] = {
         "A saida canonica atual esta em `{source}`, com {rows} linhas, {cnpjs} CNPJs e serie de {year_range}.",
         "O `valor_total` ficou preenchido em toda a base final e a trilha foi fechada sem CPF no parquet.",
     ],
+    "MA": [
+        "Foi criado o parser `utils/orcamento_geral/processar_orcamento_geral_ma.py` para consolidar pagamentos a partir dos CSVs de despesas do Maranhao e das fontes legadas de OSC.",
+        "A saida canonica atual esta em `{source}`, com {rows} linhas, {cnpjs} CNPJs e serie de {year_range}.",
+        "O `valor_total` usa o campo `valor` filtrado por `fase == 'PAGAMENTO'`, com exclusao de PESSOAL por elemento de despesa.",
+    ],
+    "MG": [
+        "Foi criado o parser `utils/orcamento_geral/processar_orcamento_geral_mg.py` a partir dos CSVs enriquecidos de despesa de Minas Gerais.",
+        "A saida canonica atual esta em `{source}`, com {rows} linhas, {cnpjs} CNPJs e serie de {year_range}.",
+        "O `valor_total` usa `vr_pago` diretamente, com exclusao de PESSOAL por elemento de despesa.",
+    ],
     "MT": [
         "A trilha de Mato Grosso ficou restrita a uma unica pipeline oficial em `utils/orcamento_geral/processar_orcamento_geral_mt.py`.",
         "A saida canonica atual esta em `{source}`, com {rows} linhas, {cnpjs} CNPJs e cobertura valida de {year_range}.",
         "O ano de 2022 ficou fora do canone porque o layout oficial nao traz data da despesa, e a trilha atual exige no minimo `valor + data + cnpj`.",
+        "O `valor_total` usa `VLDESPESA` filtrado por fase de pagamento (NOB/PAGO/PAGAMENTO), com exclusao de PESSOAL por grupo de natureza de despesa.",
     ],
 }
 

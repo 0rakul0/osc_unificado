@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import gc
 import re
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 import sys
@@ -18,6 +19,7 @@ if str(ROOT_DIR) not in sys.path:
 from project_paths import BASES_CONVENIOS_DIR, PROCESSADA_DIR, cli_default
 from utils import get_parser
 from utils.common import STANDARD_COLUMNS, clean_cnpj, clean_valid_cnpj
+from utils.core.audit_runs import build_run_file_path, ensure_dir, utc_now_iso, write_json
 
 
 ORIGEM_PADRAO = "ESTADO_CONVENIOS"
@@ -284,17 +286,33 @@ def write_previews_parquet(
     processed_dir: Path,
     preview_rows: int | None = None,
     force: bool = False,
-) -> tuple[dict[str, int], list[str]]:
+    logs_dir: Path | None = None,
+) -> tuple[dict[str, int], list[str], list[dict[str, object]]]:
     processed_dir.mkdir(parents=True, exist_ok=True)
     processed_counts: dict[str, int] = {}
     skipped_ufs: list[str] = []
+    steps: list[dict[str, object]] = []
 
     for uf in ufs:
+        started = datetime.now(timezone.utc)
         final_path = processed_output_path(processed_dir, uf)
         temp_path = partial_output_path(processed_dir, uf)
+        log_path = logs_dir / f"{uf}.log" if logs_dir is not None else None
 
         if final_path.exists() and not force:
             skipped_ufs.append(uf)
+            finished = datetime.now(timezone.utc)
+            steps.append(
+                {
+                    "uf": uf,
+                    "status": "skipped_existing",
+                    "output_path": str(final_path),
+                    "log_path": str(log_path) if log_path else None,
+                    "started_at": started.replace(microsecond=0).isoformat(),
+                    "finished_at": finished.replace(microsecond=0).isoformat(),
+                    "duration_seconds": round((finished - started).total_seconds(), 3),
+                }
+            )
             continue
 
         if final_path.exists():
@@ -306,13 +324,16 @@ def write_previews_parquet(
         parser = get_parser(uf)
         writer: pq.ParquetWriter | None = None
         total_rows = 0
+        warnings: list[str] = []
 
         try:
             for workbook_path in list_workbooks(base_dir, uf):
                 try:
                     preview_df = parser.parse_workbook(workbook_path, preview_rows=preview_rows)
                 except Exception as exc:
-                    print(f"[aviso] UF {uf}: falha ao ler {workbook_path.name}: {exc}")
+                    message = f"[aviso] UF {uf}: falha ao ler {workbook_path.name}: {exc}"
+                    print(message)
+                    warnings.append(message)
                     gc.collect()
                     continue
                 preview_df = normalize_preview(preview_df, uf)
@@ -339,9 +360,34 @@ def write_previews_parquet(
 
         temp_path.replace(final_path)
         processed_counts[uf] = total_rows
+        finished = datetime.now(timezone.utc)
+        if log_path is not None:
+            log_lines = [
+                f"uf={uf}",
+                f"status=ok",
+                f"output={final_path}",
+                f"rows={total_rows}",
+            ]
+            if warnings:
+                log_lines.append("warnings=")
+                log_lines.extend(warnings)
+            log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
+        steps.append(
+            {
+                "uf": uf,
+                "status": "ok",
+                "rows": total_rows,
+                "output_path": str(final_path),
+                "log_path": str(log_path) if log_path else None,
+                "warnings": warnings,
+                "started_at": started.replace(microsecond=0).isoformat(),
+                "finished_at": finished.replace(microsecond=0).isoformat(),
+                "duration_seconds": round((finished - started).total_seconds(), 3),
+            }
+        )
         gc.collect()
 
-    return processed_counts, skipped_ufs
+    return processed_counts, skipped_ufs, steps
 
 
 def parse_args() -> argparse.Namespace:
@@ -354,13 +400,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--preview-rows", type=int, default=None, help="Quantidade de linhas lidas por aba. Se omitido, le todas.")
     parser.add_argument("--processed-dir", default=cli_default(PROCESSADA_DIR), help="Pasta onde os arquivos parquet por UF serao salvos.")
     parser.add_argument("--force", action="store_true", help="Reprocessa a UF mesmo que o parquet final ja exista.")
+    parser.add_argument("--logs-dir", default=str(ROOT_DIR / "logs" / "convenios"), help="Pasta para logs por UF.")
+    parser.add_argument("--manifest-dir", default=str(ROOT_DIR / "outputs" / "manifests" / "convenios"), help="Pasta para manifestos JSON da execucao.")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    run_started = datetime.now(timezone.utc)
     base_dir = Path(args.base_dir)
     processed_dir = Path(args.processed_dir)
+    logs_dir = ensure_dir(Path(args.logs_dir))
+    manifest_dir = ensure_dir(Path(args.manifest_dir))
     available_ufs = sorted(path.name.upper() for path in base_dir.iterdir() if is_uf_directory(path))
     skipped_by_arg = {uf.upper() for uf in args.skip_ufs}
     requested_ufs = [uf.upper() for uf in (args.ufs or available_ufs)]
@@ -374,12 +425,13 @@ def main() -> None:
         done_ufs = set()
         ufs_to_process = requested_ufs
 
-    processed_counts, skipped_ufs = write_previews_parquet(
+    processed_counts, skipped_ufs, steps = write_previews_parquet(
         base_dir=base_dir,
         ufs=ufs_to_process,
         processed_dir=processed_dir,
         preview_rows=args.preview_rows,
         force=args.force,
+        logs_dir=logs_dir,
     )
 
     processed_total = sum(processed_counts.values())
@@ -391,6 +443,23 @@ def main() -> None:
     print(f"Linhas consolidadas nesta execucao: {processed_total}")
     print(f"UFs processadas nesta execucao: {', '.join(processed_counts) if processed_counts else 'nenhuma'}")
     print(f"UFs ja processadas/puladas: {', '.join(skipped_total) if skipped_total else 'nenhuma'}")
+    manifest_path = build_run_file_path(manifest_dir, "processar_convenios")
+    write_json(
+        manifest_path,
+        {
+            "runner": "utils/convenios/unificador.py",
+            "base_dir": str(base_dir),
+            "processed_dir": str(processed_dir),
+            "preview_rows": args.preview_rows,
+            "force": args.force,
+            "requested_ufs": requested_ufs,
+            "ufs_processadas": list(processed_counts.keys()),
+            "ufs_puladas": skipped_total,
+            "started_at": run_started.replace(microsecond=0).isoformat(),
+            "finished_at": utc_now_iso(),
+            "steps": steps,
+        },
+    )
 
 
 if __name__ == "__main__":

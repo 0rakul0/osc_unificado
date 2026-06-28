@@ -113,9 +113,9 @@ def build_rj_budget_frame(source_df: pl.DataFrame, ano: str) -> pd.DataFrame:
             pl.lit(ORIGEM_ORCAMENTO_GERAL).alias("origem"),
             pl.lit(ano).alias("ano"),
             first_non_zero_expr(
-                pl_col_or_null(source_df, "Valor Pago"),
                 pl_col_or_null(source_df, "Valor Liquidado"),
                 pl_col_or_null(source_df, "Valor Empenhado"),
+                pl_col_or_null(source_df, "Valor Pago"),
             ).alias("valor_total"),
             pl_col_or_null(source_df, "Credor").alias("cnpj"),
             pl_col_or_null(source_df, "Nome Credor").alias("nome_osc"),

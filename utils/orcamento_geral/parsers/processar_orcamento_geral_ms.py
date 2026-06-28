@@ -119,7 +119,7 @@ def build_ms_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
             "uf": "MS",
             "origem": ORIGEM_ORCAMENTO_GERAL,
             "ano": filtered.get("ano"),
-            "valor_total": first_non_empty(filtered.get("Pago"), filtered.get("Liquidado"), filtered.get("Empenhado")),
+            "valor_total": first_non_empty(filtered.get("Liquidado"), filtered.get("Empenhado"), filtered.get("Pago")),
             "cnpj": filtered.get("Cpf/Cnpj"),
             "nome_osc": filtered.get("Credor"),
             "mes": pd.NA,

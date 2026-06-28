@@ -4,6 +4,8 @@
 # Mantem no Git apenas estas pastas
 !/historia/
 !/pages/
+!/docs/
+!/scripts/
 !/utils/
 
 # Ambientes e artefatos Python

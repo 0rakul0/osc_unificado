@@ -114,7 +114,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--report",
-        default="relatorio_download_orcamento_geral.csv",
+        default="outputs/relatorios/relatorio_download_orcamento_geral.csv",
         help="CSV de status do lote.",
     )
     parser.add_argument(

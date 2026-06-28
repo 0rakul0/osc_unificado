@@ -138,9 +138,9 @@ def split_favored(series: pd.Series | None) -> tuple[pd.Series, pd.Series]:
 
 def build_sp_general_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
     valor_total = first_non_empty(
-        source_df.get("ValorPago"),
         source_df.get("ValorLiquidado"),
         source_df.get("ValorEmpenhado"),
+        source_df.get("ValorPago"),
     )
     documento, credor = split_favored(source_df.get("CgcCpfFavorecido"))
     mapped = pd.DataFrame(

@@ -154,7 +154,7 @@ def build_rr_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
             "uf": "RR",
             "origem": ORIGEM_ORCAMENTO_GERAL,
             "ano": filtered.get("exercicio"),
-            "valor_total": first_non_empty(filtered.get("totalPago"), filtered.get("totalLiquidado"), filtered.get("valorEmpenho")),
+            "valor_total": first_non_empty(filtered.get("totalLiquidado"), filtered.get("valorEmpenho"), filtered.get("totalPago")),
             "cnpj": filtered.get("cpfCnpj"),
             "nome_osc": filtered.get("razaoSocial"),
             "mes": month_from_date(data_inicio),

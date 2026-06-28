@@ -68,10 +68,10 @@ RELEVANT_COLUMNS = [
     "CDSUBELEMENTODESPESA",
     "NMSUBELEMENTODESPESA",
     "VLDESPESA",
-    "HISTORICODESPESA",
+    "VLPAGO",
     "VLEMPENHADO",
     "VLLIQUIDADO",
-    "VLPAGO",
+    "HISTORICODESPESA",
 ]
 
 
@@ -310,6 +310,19 @@ def first_non_empty(*series: pd.Series | None) -> pd.Series:
 
 
 def build_mt_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
+    has_phase = "TPDESPESA" in source_df.columns
+
+    if has_phase:
+        fase = clean_text(source_df.get("TPDESPESA")).fillna("")
+        is_payment = fase.str.upper().isin(["NOB", "PAGO", "PAGAMENTO"])
+        source_df = source_df.loc[is_payment].copy()
+        valor_column = "VLDESPESA"
+    else:
+        valor_column = "VLPAGO"
+
+    grupo = clean_text(source_df.get("NMGRUPONATUREZADESPESA")).fillna("")
+    source_df = source_df.loc[~grupo.str.contains("pessoal", case=False, regex=False, na=False)].copy()
+
     modalidade = first_non_empty(
         source_df.get("NMMODALIDADEAPLICACAO"),
         source_df.get("NMGRUPONATUREZADESPESA"),
@@ -327,12 +340,7 @@ def build_mt_budget_frame(source_df: pd.DataFrame) -> pd.DataFrame:
             "uf": "MT",
             "origem": ORIGEM_ORCAMENTO_GERAL,
             "ano": source_df.get("NUANO"),
-            "valor_total": first_non_empty(
-                source_df.get("VLDESPESA"),
-                source_df.get("VLPAGO"),
-                source_df.get("VLLIQUIDADO"),
-                source_df.get("VLEMPENHADO"),
-            ),
+            "valor_total": first_non_empty(source_df.get("VLLIQUIDADO"), source_df.get(valor_column), source_df.get("VLEMPENHADO")),
             "cnpj": source_df.get("CPF_CNPJ"),
             "nome_osc": source_df.get("NMCREDOR"),
             "mes": source_df.get("NUMES"),
@@ -381,6 +389,9 @@ def write_mt_parquet(
                 total_source_rows += len(source_df)
                 mapped = build_mt_budget_frame(source_df)
                 normalized = normalize_preview(mapped, "MT", require_cnpj=True)
+                normalized = normalized[
+                    pd.to_numeric(normalized["valor_total"], errors="coerce").fillna(0) > 0
+                ]
                 if require_date and not normalized.empty:
                     normalized = normalized[normalized["data_inicio"].astype("string").str.strip().fillna("") != ""]
 
